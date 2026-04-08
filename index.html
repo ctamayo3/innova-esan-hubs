@@ -1,0 +1,1335 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Innova ESAN — HUBS</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --orange: #F5A623;
+      --blue: #4B4DE8;
+      --green: #10b981;
+      --red: #ef4444;
+      --bg: #FAFAF5;
+      --card-bg: #ffffff;
+      --text: #1a1a1a;
+      --text-muted: #6b7280;
+      --border: #e5e7eb;
+      --shadow: 0 2px 12px rgba(0,0,0,0.08);
+      --radius: 16px;
+      --radius-sm: 10px;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── HEADER ── */
+    header {
+      background: #ffffff;
+      border-bottom: 2px solid var(--orange);
+      padding: 18px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+
+    .header-left { display: flex; align-items: center; gap: 14px; }
+
+    .logo-badge {
+      background: var(--orange);
+      color: #fff;
+      font-weight: 800;
+      font-size: 18px;
+      width: 44px; height: 44px;
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      letter-spacing: -0.5px;
+    }
+
+    header h1 {
+      font-size: clamp(16px, 3vw, 22px);
+      font-weight: 800;
+      color: var(--text);
+      letter-spacing: -0.3px;
+    }
+
+    header h1 span { color: var(--orange); }
+
+    .btn-add-global {
+      background: var(--blue);
+      color: #fff;
+      border: none;
+      padding: 10px 18px;
+      border-radius: var(--radius-sm);
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+      white-space: nowrap;
+    }
+
+    .btn-add-global:hover { background: #3a3cc8; }
+    .btn-add-global:active { transform: scale(0.97); }
+
+    /* ── TABS ── */
+    .tabs-wrapper {
+      overflow-x: auto;
+      background: #fff;
+      border-bottom: 1px solid var(--border);
+      scrollbar-width: none;
+    }
+    .tabs-wrapper::-webkit-scrollbar { display: none; }
+
+    .tabs {
+      display: flex;
+      min-width: max-content;
+      padding: 0 16px;
+    }
+
+    .tab-btn {
+      padding: 14px 20px;
+      border: none;
+      background: transparent;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      transition: color 0.2s, border-color 0.2s;
+      white-space: nowrap;
+      letter-spacing: 0.2px;
+    }
+
+    .tab-btn:hover { color: var(--text); }
+    .tab-btn.active { color: var(--orange); border-bottom-color: var(--orange); }
+    .tab-btn.tab-dashboard { font-weight: 800; }
+
+    /* ── MAIN ── */
+    main {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 28px 16px;
+    }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── PANEL HEADER ── */
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .panel-title {
+      font-size: clamp(20px, 4vw, 26px);
+      font-weight: 800;
+      letter-spacing: -0.5px;
+    }
+
+    .panel-title span {
+      display: inline-block;
+      background: var(--orange);
+      color: #fff;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 20px;
+      margin-left: 10px;
+      vertical-align: middle;
+    }
+
+    /* ── STUDENT GRID ── */
+    .students-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+    }
+
+    /* ── STUDENT CARD ── */
+    .student-card {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      padding: 20px;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+      transition: box-shadow 0.2s, transform 0.15s;
+      position: relative;
+    }
+
+    .student-card:hover {
+      box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+      transform: translateY(-1px);
+    }
+
+    .card-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+
+    .student-avatar {
+      width: 42px; height: 42px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--orange), #f77f00);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800;
+      font-size: 16px;
+      color: #fff;
+      flex-shrink: 0;
+      margin-right: 12px;
+    }
+
+    .student-info { flex: 1; min-width: 0; }
+
+    .student-name {
+      font-weight: 800;
+      font-size: 15px;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .student-codigo {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--blue);
+      letter-spacing: 0.4px;
+      margin-top: 1px;
+      opacity: 0.8;
+    }
+
+    .student-hours {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-top: 3px;
+    }
+
+    .student-hours strong {
+      color: var(--blue);
+      font-weight: 800;
+      font-size: 15px;
+    }
+
+    .btn-delete {
+      background: none;
+      border: none;
+      color: #d1d5db;
+      cursor: pointer;
+      font-size: 18px;
+      line-height: 1;
+      padding: 4px;
+      border-radius: 6px;
+      transition: color 0.2s, background 0.2s;
+      flex-shrink: 0;
+    }
+
+    .btn-delete:hover { color: #ef4444; background: #fef2f2; }
+
+    /* ── PROGRESS BAR ── */
+    .progress-wrap { margin-bottom: 14px; }
+
+    .progress-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .progress-pct { color: var(--orange); font-weight: 800; }
+
+    .progress-bar-bg {
+      height: 10px;
+      background: #f3f4f6;
+      border-radius: 99px;
+      overflow: hidden;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      border-radius: 99px;
+      background: linear-gradient(90deg, var(--orange), #f77f00);
+      transition: width 0.5s cubic-bezier(.4,0,.2,1);
+    }
+
+    .progress-bar-fill.complete {
+      background: linear-gradient(90deg, #10b981, #059669);
+    }
+
+    /* ── ACTION BUTTONS ── */
+    .btn-groups-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 7px;
+    }
+
+    .btn-group-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      margin-bottom: 1px;
+    }
+
+    .btn-hours {
+      flex: 1;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 4px;
+      font-weight: 800;
+      font-size: 13px;
+      cursor: pointer;
+      transition: transform 0.1s, opacity 0.2s;
+    }
+
+    .btn-hours.add {
+      background: var(--orange);
+      color: #fff;
+    }
+
+    .btn-hours.sub {
+      background: #f3f4f6;
+      color: #6b7280;
+      border: 1.5px solid #e5e7eb;
+    }
+
+    .btn-hours.sub:hover { background: #fee2e2; color: #ef4444; border-color: #fca5a5; }
+    .btn-hours.add:hover { opacity: 0.88; }
+    .btn-hours:active { transform: scale(0.95); }
+    .btn-hours:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+    /* ── EMPTY STATE ── */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-muted);
+    }
+
+    .empty-state .empty-icon { font-size: 52px; margin-bottom: 16px; }
+    .empty-state p { font-size: 16px; font-weight: 600; }
+    .empty-state small { font-size: 13px; margin-top: 6px; display: block; }
+
+    /* ── LOADING ── */
+    .loading-state {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 60px 20px;
+      gap: 12px;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .spinner {
+      width: 24px; height: 24px;
+      border: 3px solid var(--border);
+      border-top-color: var(--orange);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ══════════════════════════════════════
+       DASHBOARD
+    ══════════════════════════════════════ */
+    .dash-title {
+      font-size: clamp(22px, 4vw, 28px);
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      margin-bottom: 6px;
+    }
+
+    .dash-subtitle {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin-bottom: 28px;
+      font-weight: 500;
+    }
+
+    /* KPI CARDS */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 14px;
+      margin-bottom: 32px;
+    }
+
+    @media (min-width: 640px) {
+      .kpi-grid { grid-template-columns: repeat(4, 1fr); }
+    }
+
+    .kpi-card {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      padding: 20px 18px;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .kpi-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 4px;
+    }
+
+    .kpi-card.orange::before { background: var(--orange); }
+    .kpi-card.blue::before   { background: var(--blue); }
+    .kpi-card.green::before  { background: var(--green); }
+    .kpi-card.purple::before { background: #8b5cf6; }
+
+    .kpi-icon {
+      font-size: 24px;
+      margin-bottom: 10px;
+      display: block;
+    }
+
+    .kpi-value {
+      font-size: clamp(26px, 5vw, 34px);
+      font-weight: 900;
+      letter-spacing: -1px;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+
+    .kpi-card.orange .kpi-value { color: var(--orange); }
+    .kpi-card.blue   .kpi-value { color: var(--blue); }
+    .kpi-card.green  .kpi-value { color: var(--green); }
+    .kpi-card.purple .kpi-value { color: #8b5cf6; }
+
+    .kpi-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+
+    /* GLOBAL PROGRESS */
+    .dash-section-title {
+      font-size: 16px;
+      font-weight: 800;
+      margin-bottom: 14px;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .dash-section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .global-progress-wrap {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      padding: 20px 22px;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+      margin-bottom: 32px;
+    }
+
+    .global-progress-labels {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 10px;
+    }
+
+    .global-progress-labels span:first-child {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .global-pct {
+      font-size: 22px;
+      font-weight: 900;
+      color: var(--orange);
+      letter-spacing: -0.5px;
+    }
+
+    .global-bar-bg {
+      height: 14px;
+      background: #f3f4f6;
+      border-radius: 99px;
+      overflow: hidden;
+    }
+
+    .global-bar-fill {
+      height: 100%;
+      border-radius: 99px;
+      background: linear-gradient(90deg, var(--orange), #f77f00);
+      transition: width 0.8s cubic-bezier(.4,0,.2,1);
+    }
+
+    /* HUB SUMMARY CARDS */
+    .hub-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 14px;
+      margin-bottom: 32px;
+    }
+
+    .hub-summary-card {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .hub-summary-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .hub-summary-name {
+      font-weight: 800;
+      font-size: 14px;
+      color: var(--text);
+    }
+
+    .hub-summary-badge {
+      background: #f3f4f6;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 20px;
+    }
+
+    .hub-summary-stats {
+      display: flex;
+      gap: 16px;
+    }
+
+    .hub-stat {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .hub-stat-value {
+      font-size: 20px;
+      font-weight: 900;
+      color: var(--blue);
+      letter-spacing: -0.5px;
+      line-height: 1;
+    }
+
+    .hub-stat-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      margin-top: 2px;
+    }
+
+    .hub-summary-bar-bg {
+      height: 6px;
+      background: #f3f4f6;
+      border-radius: 99px;
+      overflow: hidden;
+    }
+
+    .hub-summary-bar-fill {
+      height: 100%;
+      border-radius: 99px;
+      background: linear-gradient(90deg, var(--blue), #7c7ff0);
+      transition: width 0.6s cubic-bezier(.4,0,.2,1);
+    }
+
+    .hub-complete-count {
+      font-size: 12px;
+      color: var(--green);
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* ── MODAL ── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      backdrop-filter: blur(3px);
+    }
+
+    .modal-overlay.open { display: flex; }
+
+    .modal {
+      background: #fff;
+      border-radius: var(--radius);
+      padding: 28px;
+      width: 100%;
+      max-width: 420px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+      animation: modalIn 0.2s ease;
+    }
+
+    @keyframes modalIn {
+      from { opacity: 0; transform: scale(0.94) translateY(10px); }
+      to   { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
+    .modal h2 {
+      font-size: 20px;
+      font-weight: 800;
+      margin-bottom: 22px;
+      color: var(--text);
+    }
+
+    .form-group { margin-bottom: 18px; }
+
+    .form-group label {
+      display: block;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-muted);
+      margin-bottom: 7px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .form-group input,
+    .form-group select {
+      width: 100%;
+      border: 2px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 12px 14px;
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+      background: var(--bg);
+      outline: none;
+      transition: border-color 0.2s;
+      font-family: inherit;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus { border-color: var(--orange); }
+
+    .form-group .field-hint {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 5px;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .btn-cancel {
+      flex: 1;
+      padding: 12px;
+      border: 2px solid var(--border);
+      background: transparent;
+      border-radius: var(--radius-sm);
+      font-weight: 700;
+      font-size: 15px;
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: border-color 0.2s, color 0.2s;
+    }
+
+    .btn-cancel:hover { border-color: var(--text-muted); color: var(--text); }
+
+    .btn-submit {
+      flex: 2;
+      padding: 12px;
+      border: none;
+      background: var(--blue);
+      color: #fff;
+      border-radius: var(--radius-sm);
+      font-weight: 800;
+      font-size: 15px;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+    }
+
+    .btn-submit:hover { background: #3a3cc8; }
+    .btn-submit:active { transform: scale(0.98); }
+    .btn-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    /* ── TOAST ── */
+    .toast-container {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 300;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .toast {
+      background: #1f2937;
+      color: #fff;
+      padding: 12px 18px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+      animation: toastIn 0.3s ease, toastOut 0.3s ease 2.7s forwards;
+      max-width: 300px;
+      border-left: 4px solid var(--orange);
+    }
+
+    .toast.success { border-left-color: #10b981; }
+    .toast.error   { border-left-color: #ef4444; }
+
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes toastOut {
+      from { opacity: 1; transform: translateY(0); }
+      to   { opacity: 0; transform: translateY(12px); }
+    }
+
+    /* ── CONFIRM DIALOG ── */
+    .confirm-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      z-index: 300;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      backdrop-filter: blur(3px);
+    }
+
+    .confirm-overlay.open { display: flex; }
+
+    .confirm-box {
+      background: #fff;
+      border-radius: var(--radius);
+      padding: 28px;
+      width: 100%;
+      max-width: 360px;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+      animation: modalIn 0.2s ease;
+    }
+
+    .confirm-icon { font-size: 44px; margin-bottom: 14px; }
+
+    .confirm-box h3 {
+      font-size: 18px;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+
+    .confirm-box p {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin-bottom: 22px;
+    }
+
+    .confirm-box p strong { color: var(--text); }
+
+    .confirm-actions { display: flex; gap: 10px; }
+
+    .btn-confirm-cancel {
+      flex: 1;
+      padding: 11px;
+      border: 2px solid var(--border);
+      background: transparent;
+      border-radius: var(--radius-sm);
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      color: var(--text-muted);
+    }
+
+    .btn-confirm-delete {
+      flex: 1;
+      padding: 11px;
+      border: none;
+      background: #ef4444;
+      color: #fff;
+      border-radius: var(--radius-sm);
+      font-weight: 800;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .btn-confirm-delete:hover { background: #dc2626; }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 600px) {
+      header { padding: 14px 16px; }
+      main { padding: 20px 12px; }
+      .students-grid { grid-template-columns: 1fr; }
+      .panel-title { font-size: 20px; }
+      .toast-container { right: 12px; bottom: 16px; left: 12px; }
+      .toast { max-width: 100%; }
+      .hub-summary-grid { grid-template-columns: 1fr; }
+    }
+
+    @media (min-width: 768px) and (max-width: 1024px) {
+      main { padding: 24px 20px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="header-left">
+    <div class="logo-badge">IE</div>
+    <h1>Innova ESAN — <span>HUBS</span></h1>
+  </div>
+  <button class="btn-add-global" onclick="openModal()">+ Agregar alumno</button>
+</header>
+
+<!-- TABS -->
+<div class="tabs-wrapper">
+  <div class="tabs" id="tabs"></div>
+</div>
+
+<!-- MAIN CONTENT -->
+<main id="main-content"></main>
+
+<!-- TOAST CONTAINER -->
+<div class="toast-container" id="toast-container"></div>
+
+<!-- MODAL: AGREGAR ALUMNO -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <h2>Agregar alumno</h2>
+    <div class="form-group">
+      <label>Nombre completo</label>
+      <input type="text" id="input-nombre" placeholder="Ej: María García" autocomplete="off" />
+    </div>
+    <div class="form-group">
+      <label>Código de alumno</label>
+      <input type="text" id="input-codigo" placeholder="Ej: 2024-01234" autocomplete="off" />
+      <div class="field-hint">Opcional — identificador del alumno</div>
+    </div>
+    <div class="form-group">
+      <label>HUB</label>
+      <select id="select-hub"></select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+      <button class="btn-submit" id="btn-guardar" onclick="guardarAlumno()">Guardar alumno</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIRM DELETE -->
+<div class="confirm-overlay" id="confirm-overlay">
+  <div class="confirm-box">
+    <div class="confirm-icon">🗑️</div>
+    <h3>Eliminar alumno</h3>
+    <p>¿Estás seguro de que deseas eliminar a <strong id="confirm-nombre"></strong>? Esta acción no se puede deshacer.</p>
+    <div class="confirm-actions">
+      <button class="btn-confirm-cancel" onclick="closeConfirm()">Cancelar</button>
+      <button class="btn-confirm-delete" id="btn-confirm-delete">Eliminar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  /* ── SUPABASE ── */
+  const SUPABASE_URL = 'https://tasqqbfplqfnofqhrqab.supabase.co';
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRhc3FxYmZwbHFmbm9mcWhycWFiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MTUwOTMsImV4cCI6MjA5MTE5MTA5M30.NdaWDK-sZUivER3rmS3Ke1SEdvAtIwzlOgT1nQrIjUk';
+  const { createClient } = supabase;
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  /* ── HUBS CONFIG ── */
+  const HUBS = [
+    'PsychoHUB', 'TechHUB', 'BusinessHUB',
+    'MktHUB', 'CreativeHUB', 'LegalHUB', 'PodcastHUB'
+  ];
+
+  const DASHBOARD_ID = 'Dashboard';
+  const META = 30;
+
+  let alumnos   = [];
+  let activeTab = DASHBOARD_ID;
+
+  /* ── INIT ── */
+  (function init() {
+    buildTabs();
+    buildDashboardPanel();
+    buildHubPanels();
+    buildModalSelect();
+    loadAlumnos();
+  })();
+
+  /* ── BUILD UI ── */
+  function buildTabs() {
+    const container = document.getElementById('tabs');
+
+    // Dashboard tab first
+    const dash = document.createElement('button');
+    dash.className = 'tab-btn tab-dashboard active';
+    dash.textContent = '📊 Dashboard';
+    dash.dataset.tab = DASHBOARD_ID;
+    dash.onclick = () => switchTab(DASHBOARD_ID);
+    container.appendChild(dash);
+
+    // Hub tabs
+    HUBS.forEach(hub => {
+      const btn = document.createElement('button');
+      btn.className = 'tab-btn';
+      btn.textContent = hub;
+      btn.dataset.tab = hub;
+      btn.onclick = () => switchTab(hub);
+      container.appendChild(btn);
+    });
+  }
+
+  function buildDashboardPanel() {
+    const main = document.getElementById('main-content');
+    const panel = document.createElement('div');
+    panel.className = 'tab-panel active';
+    panel.id = `panel-${DASHBOARD_ID}`;
+    panel.innerHTML = `
+      <div class="dash-title">Dashboard general</div>
+      <div class="dash-subtitle">Resumen del programa HUBS — Innova ESAN</div>
+
+      <div class="kpi-grid" id="kpi-grid">
+        <div class="loading-state" style="grid-column:1/-1"><div class="spinner"></div></div>
+      </div>
+
+      <div class="dash-section-title">Progreso global</div>
+      <div class="global-progress-wrap" id="global-progress-wrap">
+        <div class="loading-state"><div class="spinner"></div></div>
+      </div>
+
+      <div class="dash-section-title">Resumen por HUB</div>
+      <div class="hub-summary-grid" id="hub-summary-grid">
+        <div class="loading-state" style="grid-column:1/-1"><div class="spinner"></div></div>
+      </div>
+    `;
+    main.appendChild(panel);
+  }
+
+  function buildHubPanels() {
+    const main = document.getElementById('main-content');
+    HUBS.forEach(hub => {
+      const panel = document.createElement('div');
+      panel.className = 'tab-panel';
+      panel.id = `panel-${hub}`;
+      panel.innerHTML = `
+        <div class="panel-header">
+          <div class="panel-title">${hub} <span id="count-${hub}">0</span></div>
+        </div>
+        <div class="students-grid" id="grid-${hub}">
+          <div class="loading-state"><div class="spinner"></div> Cargando alumnos…</div>
+        </div>
+      `;
+      main.appendChild(panel);
+    });
+  }
+
+  function buildModalSelect() {
+    const sel = document.getElementById('select-hub');
+    HUBS.forEach(hub => {
+      const opt = document.createElement('option');
+      opt.value = hub;
+      opt.textContent = hub;
+      sel.appendChild(opt);
+    });
+  }
+
+  /* ── TAB SWITCH ── */
+  function switchTab(tab) {
+    activeTab = tab;
+    document.querySelectorAll('.tab-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.tab === tab);
+    });
+    document.querySelectorAll('.tab-panel').forEach(p => {
+      p.classList.toggle('active', p.id === `panel-${tab}`);
+    });
+  }
+
+  /* ── LOAD ALUMNOS ── */
+  async function loadAlumnos() {
+    const { data, error } = await db.from('alumnos').select('*').order('nombre');
+    if (error) { showToast('Error cargando alumnos: ' + error.message, 'error'); return; }
+    alumnos = data || [];
+    renderAll();
+  }
+
+  /* ── RENDER ALL ── */
+  function renderAll() {
+    renderDashboard();
+    HUBS.forEach(hub => renderHub(hub));
+  }
+
+  /* ── RENDER HUB ── */
+  function renderHub(hub) {
+    const grid  = document.getElementById(`grid-${hub}`);
+    const count = document.getElementById(`count-${hub}`);
+    const lista = alumnos.filter(a => a.hub === hub);
+    count.textContent = lista.length;
+
+    if (lista.length === 0) {
+      grid.innerHTML = `
+        <div class="empty-state" style="grid-column:1/-1">
+          <div class="empty-icon">📭</div>
+          <p>No hay alumnos en este HUB</p>
+          <small>Haz clic en "+ Agregar alumno" para comenzar</small>
+        </div>`;
+      return;
+    }
+
+    grid.innerHTML = '';
+    lista.forEach(a => grid.appendChild(buildCard(a)));
+  }
+
+  /* ── BUILD STUDENT CARD ── */
+  function buildCard(alumno) {
+    const horas    = alumno.horas || 0;
+    const pct      = Math.min(100, Math.round((horas / META) * 100));
+    const done     = horas >= META;
+    const initials = alumno.nombre.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
+    const codigoHtml = alumno.codigo
+      ? `<div class="student-codigo">${escHtml(alumno.codigo)}</div>`
+      : '';
+
+    const card = document.createElement('div');
+    card.className = 'student-card';
+    card.id = `card-${alumno.id}`;
+    card.innerHTML = `
+      <div class="card-top">
+        <div class="student-avatar">${initials}</div>
+        <div class="student-info">
+          <div class="student-name" title="${escHtml(alumno.nombre)}">${escHtml(alumno.nombre)}</div>
+          ${codigoHtml}
+          <div class="student-hours"><strong>${horas}</strong> / ${META} horas</div>
+        </div>
+        <button class="btn-delete" title="Eliminar alumno" onclick="confirmDelete(${alumno.id}, '${escJs(alumno.nombre)}')">✕</button>
+      </div>
+      <div class="progress-wrap">
+        <div class="progress-labels">
+          <span>${done ? '✅ Meta alcanzada' : 'Progreso'}</span>
+          <span class="progress-pct">${pct}%</span>
+        </div>
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill ${done ? 'complete' : ''}" style="width:${pct}%"></div>
+        </div>
+      </div>
+      <div class="btn-groups-wrap">
+        <div class="btn-group-label">Agregar horas</div>
+        <div class="btn-group">
+          <button class="btn-hours add" onclick="changeHours(${alumno.id}, 1)">+1 h</button>
+          <button class="btn-hours add" onclick="changeHours(${alumno.id}, 2)">+2 h</button>
+          <button class="btn-hours add" onclick="changeHours(${alumno.id}, 3)">+3 h</button>
+        </div>
+        <div class="btn-group-label">Restar horas</div>
+        <div class="btn-group">
+          <button class="btn-hours sub" onclick="changeHours(${alumno.id}, -1)" ${horas < 1 ? 'disabled' : ''}>−1 h</button>
+          <button class="btn-hours sub" onclick="changeHours(${alumno.id}, -2)" ${horas < 2 ? 'disabled' : ''}>−2 h</button>
+          <button class="btn-hours sub" onclick="changeHours(${alumno.id}, -3)" ${horas < 3 ? 'disabled' : ''}>−3 h</button>
+        </div>
+      </div>
+    `;
+    return card;
+  }
+
+  /* ── CHANGE HOURS (+/-) ── */
+  async function changeHours(id, delta) {
+    const alumno = alumnos.find(a => a.id === id);
+    if (!alumno) return;
+
+    const horasActuales = alumno.horas || 0;
+
+    // Prevent going below 0
+    if (horasActuales + delta < 0) {
+      showToast('Las horas no pueden ser negativas', 'error');
+      return;
+    }
+
+    const card = document.getElementById(`card-${id}`);
+    card.querySelectorAll('.btn-hours').forEach(b => b.disabled = true);
+
+    const nuevasHoras = horasActuales + delta;
+
+    const [{ error: e1 }, { error: e2 }] = await Promise.all([
+      db.from('alumnos').update({ horas: nuevasHoras }).eq('id', id),
+      db.from('sesiones').insert({ alumno_id: id, horas_agregadas: delta })
+    ]);
+
+    if (e1 || e2) {
+      showToast('Error al actualizar horas', 'error');
+      // re-render card to restore buttons
+      const newCard = buildCard(alumno);
+      card.replaceWith(newCard);
+      return;
+    }
+
+    alumno.horas = nuevasHoras;
+    const newCard = buildCard(alumno);
+    card.replaceWith(newCard);
+
+    renderDashboard();
+
+    const sign = delta > 0 ? '+' : '';
+    showToast(`${sign}${delta}h registrada${Math.abs(delta) > 1 ? 's' : ''} para ${alumno.nombre}`, 'success');
+  }
+
+  /* ══════════════════════════════════════
+     DASHBOARD RENDER
+  ══════════════════════════════════════ */
+  function renderDashboard() {
+    const total     = alumnos.length;
+    const completos = alumnos.filter(a => (a.horas || 0) >= META).length;
+    const enProg    = total - completos;
+    const horasSum  = alumnos.reduce((s, a) => s + (a.horas || 0), 0);
+    const horasMax  = total * META;
+    const pctGlobal = horasMax > 0 ? Math.round((horasSum / horasMax) * 100) : 0;
+
+    // KPI cards
+    document.getElementById('kpi-grid').innerHTML = `
+      <div class="kpi-card orange">
+        <span class="kpi-icon">👥</span>
+        <div class="kpi-value">${total}</div>
+        <div class="kpi-label">Total alumnos</div>
+      </div>
+      <div class="kpi-card green">
+        <span class="kpi-icon">🏆</span>
+        <div class="kpi-value">${completos}</div>
+        <div class="kpi-label">Completaron 30h</div>
+      </div>
+      <div class="kpi-card blue">
+        <span class="kpi-icon">⏳</span>
+        <div class="kpi-value">${enProg}</div>
+        <div class="kpi-label">En progreso</div>
+      </div>
+      <div class="kpi-card purple">
+        <span class="kpi-icon">📈</span>
+        <div class="kpi-value">${pctGlobal}%</div>
+        <div class="kpi-label">Avance general</div>
+      </div>
+    `;
+
+    // Global progress bar
+    document.getElementById('global-progress-wrap').innerHTML = `
+      <div class="global-progress-labels">
+        <span>${horasSum.toLocaleString()} de ${horasMax.toLocaleString()} horas acumuladas en total</span>
+        <span class="global-pct">${pctGlobal}%</span>
+      </div>
+      <div class="global-bar-bg">
+        <div class="global-bar-fill" style="width:${pctGlobal}%"></div>
+      </div>
+    `;
+
+    // Hub summary cards
+    const hubGrid = document.getElementById('hub-summary-grid');
+    hubGrid.innerHTML = '';
+
+    HUBS.forEach(hub => {
+      const lista     = alumnos.filter(a => a.hub === hub);
+      const n         = lista.length;
+      const completosH = lista.filter(a => (a.horas || 0) >= META).length;
+      const promedio  = n > 0
+        ? (lista.reduce((s, a) => s + (a.horas || 0), 0) / n).toFixed(1)
+        : '0.0';
+      const pctHub    = Math.min(100, Math.round((parseFloat(promedio) / META) * 100));
+
+      const card = document.createElement('div');
+      card.className = 'hub-summary-card';
+      card.innerHTML = `
+        <div class="hub-summary-header">
+          <div class="hub-summary-name">${hub}</div>
+          <div class="hub-summary-badge">${n} alumno${n !== 1 ? 's' : ''}</div>
+        </div>
+        <div class="hub-summary-stats">
+          <div class="hub-stat">
+            <div class="hub-stat-value">${promedio}</div>
+            <div class="hub-stat-label">Prom. horas</div>
+          </div>
+          <div class="hub-stat">
+            <div class="hub-stat-value" style="color:var(--green)">${completosH}</div>
+            <div class="hub-stat-label">Completaron</div>
+          </div>
+          <div class="hub-stat">
+            <div class="hub-stat-value" style="color:var(--orange)">${pctHub}%</div>
+            <div class="hub-stat-label">Avance</div>
+          </div>
+        </div>
+        <div class="hub-summary-bar-bg">
+          <div class="hub-summary-bar-fill" style="width:${pctHub}%"></div>
+        </div>
+      `;
+      card.style.cursor = 'pointer';
+      card.title = `Ir a ${hub}`;
+      card.onclick = () => switchTab(hub);
+      hubGrid.appendChild(card);
+    });
+  }
+
+  /* ── AGREGAR ALUMNO ── */
+  function openModal() {
+    document.getElementById('input-nombre').value = '';
+    document.getElementById('input-codigo').value = '';
+    document.getElementById('select-hub').value = HUBS.includes(activeTab) ? activeTab : HUBS[0];
+    document.getElementById('modal-overlay').classList.add('open');
+    setTimeout(() => document.getElementById('input-nombre').focus(), 100);
+  }
+
+  function closeModal() {
+    document.getElementById('modal-overlay').classList.remove('open');
+  }
+
+  async function guardarAlumno() {
+    const nombre = document.getElementById('input-nombre').value.trim();
+    const codigo = document.getElementById('input-codigo').value.trim();
+    const hub    = document.getElementById('select-hub').value;
+
+    if (!nombre) {
+      const inp = document.getElementById('input-nombre');
+      inp.focus();
+      inp.style.borderColor = '#ef4444';
+      setTimeout(() => inp.style.borderColor = '', 1500);
+      return;
+    }
+
+    const btn = document.getElementById('btn-guardar');
+    btn.disabled = true;
+    btn.textContent = 'Guardando…';
+
+    const payload = { nombre, hub, horas: 0 };
+    if (codigo) payload.codigo = codigo;
+
+    const { data, error } = await db.from('alumnos')
+      .insert(payload)
+      .select()
+      .single();
+
+    btn.disabled = false;
+    btn.textContent = 'Guardar alumno';
+
+    if (error) { showToast('Error al guardar: ' + error.message, 'error'); return; }
+
+    alumnos.push(data);
+    alumnos.sort((a, b) => a.nombre.localeCompare(b.nombre));
+    renderHub(hub);
+    renderDashboard();
+    closeModal();
+    switchTab(hub);
+    showToast(`${nombre} agregado a ${hub}`, 'success');
+  }
+
+  /* ── ELIMINAR ALUMNO ── */
+  let pendingDeleteId = null;
+
+  function confirmDelete(id, nombre) {
+    pendingDeleteId = id;
+    document.getElementById('confirm-nombre').textContent = nombre;
+    document.getElementById('confirm-overlay').classList.add('open');
+    document.getElementById('btn-confirm-delete').onclick = () => eliminarAlumno(id);
+  }
+
+  function closeConfirm() {
+    pendingDeleteId = null;
+    document.getElementById('confirm-overlay').classList.remove('open');
+  }
+
+  async function eliminarAlumno(id) {
+    const alumno = alumnos.find(a => a.id === id);
+    closeConfirm();
+
+    const { error } = await db.from('alumnos').delete().eq('id', id);
+    if (error) { showToast('Error al eliminar: ' + error.message, 'error'); return; }
+
+    alumnos = alumnos.filter(a => a.id !== id);
+    renderHub(alumno.hub);
+    renderDashboard();
+    showToast(`${alumno.nombre} eliminado`, 'success');
+  }
+
+  /* ── TOAST ── */
+  function showToast(msg, type = '') {
+    const cont  = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.textContent = msg;
+    cont.appendChild(toast);
+    setTimeout(() => toast.remove(), 3200);
+  }
+
+  /* ── UTILS ── */
+  function escHtml(str) {
+    if (!str) return '';
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function escJs(str) {
+    if (!str) return '';
+    return str.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  }
+
+  /* ── KEYBOARD ── */
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      closeModal();
+      closeConfirm();
+    }
+    if (e.key === 'Enter' && document.getElementById('modal-overlay').classList.contains('open')) {
+      guardarAlumno();
+    }
+  });
+
+  /* ── CLICK OUTSIDE MODAL ── */
+  document.getElementById('modal-overlay').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+  });
+
+  document.getElementById('confirm-overlay').addEventListener('click', function(e) {
+    if (e.target === this) closeConfirm();
+  });
+</script>
+</body>
+</html>
