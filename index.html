@@ -2536,13 +2536,19 @@
       const idx = alumnos.findIndex(a => a.id === activityAlumnoId);
       alumnos[idx] = alumnoActualizado;
 
+      const hubParaRender = activityAlumnoHub;
+      const nombreAlumno = alumno.nombre;
+
       btn.disabled = false;
       btn.textContent = 'Registrar';
 
       closeActivityModal();
-      renderHub(activityAlumnoHub);
+
+      const cardVieja = document.getElementById(`card-${activityAlumnoId}`);
+      if (cardVieja) cardVieja.replaceWith(buildCard(alumnoActualizado));
+
       renderDashboard();
-      showToast(`+${horas}h registradas para ${alumno.nombre} — ${actividad}`, 'success');
+      showToast(`+${horas}h registradas para ${nombreAlumno} — ${actividad}`, 'success');
     }
 
     /* ══════════════════════════════════════
