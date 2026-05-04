@@ -1224,6 +1224,103 @@
       border-color: var(--blue);
     }
 
+    /* ── PERFIL MODAL ── */
+    .perfil-section-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 7px;
+      margin-top: 18px;
+    }
+
+    .perfil-section-title:first-child {
+      margin-top: 0;
+    }
+
+    .perfil-textarea {
+      width: 100%;
+      border: 2px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 12px 14px;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text);
+      background: var(--bg);
+      outline: none;
+      transition: border-color 0.2s;
+      font-family: inherit;
+      resize: vertical;
+      min-height: 80px;
+      line-height: 1.5;
+    }
+
+    .perfil-textarea:focus {
+      border-color: var(--orange);
+    }
+
+    .perfil-textarea:disabled {
+      background: #f9fafb;
+      color: var(--text);
+      cursor: default;
+      border-color: var(--border);
+    }
+
+    .perfil-readonly-text {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text);
+      background: #f9fafb;
+      border: 2px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 12px 14px;
+      line-height: 1.5;
+      min-height: 60px;
+      white-space: pre-wrap;
+    }
+
+    .perfil-empty-hint {
+      font-size: 13px;
+      color: var(--text-muted);
+      font-style: italic;
+      padding: 8px 0;
+    }
+
+    .perfil-locked-badge {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      background: #fef3c7;
+      color: #92400e;
+      border: 1.5px solid #fcd34d;
+      border-radius: 20px;
+      padding: 2px 10px;
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+
+    .btn-perfil {
+      background: none;
+      border: 1.5px solid var(--border);
+      color: var(--text-muted);
+      padding: 7px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+      width: 100%;
+      margin-top: 6px;
+    }
+
+    .btn-perfil:hover {
+      border-color: var(--orange);
+      color: var(--orange);
+      background: #fffbf5;
+    }
+
     /* ── CONFIRM DIALOG ── */
     .confirm-overlay {
       display: none;
@@ -1653,6 +1750,18 @@
       <div class="modal-actions">
         <button class="btn-cancel" onclick="closeActivityModal()">Cancelar</button>
         <button class="btn-submit" id="btn-registrar-actividad" onclick="registrarActividad()">Registrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: PERFIL DE ALUMNO -->
+  <div class="modal-overlay" id="perfil-modal-overlay">
+    <div class="modal" style="max-width:500px">
+      <h2 id="perfil-modal-title">Perfil del alumno</h2>
+      <div id="perfil-modal-body"></div>
+      <div class="modal-actions" id="perfil-modal-actions">
+        <button class="btn-cancel" onclick="closePerfilModal()">Cerrar</button>
+        <button class="btn-submit" id="btn-guardar-perfil" onclick="guardarPerfil()" style="display:none">Guardar</button>
       </div>
     </div>
   </div>
@@ -2090,13 +2199,18 @@
         <button class="btn-delete" title="Eliminar alumno" onclick="confirmDelete(${alumno.id}, '${escJs(alumno.nombre)}')">✕</button>
       </div>` : '';
 
+      const perfilCompleto = !!(alumno.habilidades || alumno.horarios);
+      const perfilBtnLabel = perfilCompleto ? '👤 Ver perfil' : '👤 Registrar perfil';
+
       const hoursButtonsHtml = isAdmin ? `
       <div class="btn-groups-wrap">
         <div class="btn-group" style="margin-top:4px">
           <button class="btn-hours add" style="flex:1;background:#f0f4ff;color:var(--blue);border-color:#c7d2fe" onclick="openActivityModal(${alumno.id}, '${escJs(alumno.hub)}')">📋 Registrar actividad</button>
         </div>
       </div>
-      <button class="btn-historial" onclick="openHistorialModal(${alumno.id})">🕐 Ver historial</button>` : '';
+      <button class="btn-historial" onclick="openHistorialModal(${alumno.id})">🕐 Ver historial</button>
+      <button class="btn-perfil" onclick="openPerfilModal(${alumno.id})">👤 Ver perfil</button>` : `
+      <button class="btn-perfil" onclick="openPerfilModal(${alumno.id})">${perfilBtnLabel}</button>`;
 
       const card = document.createElement('div');
       card.className = 'student-card';
@@ -2626,6 +2740,92 @@
     }
 
     /* ══════════════════════════════════════
+       PERFIL DE ALUMNO
+    ══════════════════════════════════════ */
+    let perfilAlumnoId = null;
+
+    async function openPerfilModal(alumnoId) {
+      perfilAlumnoId = alumnoId;
+      const alumno = alumnos.find(a => a.id === alumnoId);
+      document.getElementById('perfil-modal-title').textContent = `Perfil — ${alumno?.nombre || ''}`;
+      document.getElementById('perfil-modal-overlay').classList.add('open');
+      renderPerfilBody(alumno);
+    }
+
+    function renderPerfilBody(alumno) {
+      const isAdmin = currentRole === 'admin';
+      const yaRegistro = !!(alumno.habilidades || alumno.horarios);
+      const puedeEditar = isAdmin || !yaRegistro;
+
+      const btn = document.getElementById('btn-guardar-perfil');
+      btn.style.display = puedeEditar ? '' : 'none';
+
+      const lockedBadge = (!isAdmin && yaRegistro)
+        ? '<span class="perfil-locked-badge">🔒 Solo lectura</span>'
+        : '';
+
+      if (puedeEditar) {
+        document.getElementById('perfil-modal-body').innerHTML = `
+          <div class="perfil-section-title">🛠 Habilidades ${lockedBadge}</div>
+          <textarea class="perfil-textarea" id="perfil-input-habilidades" placeholder="Ej: Diseño en Canva, edición de video, manejo de redes sociales...">${escHtml(alumno.habilidades || '')}</textarea>
+          <div class="perfil-section-title">🗓 Horarios disponibles</div>
+          <textarea class="perfil-textarea" id="perfil-input-horarios" placeholder="Ej: Lunes y miércoles de 10am a 1pm, viernes todo el día...">${escHtml(alumno.horarios || '')}</textarea>
+        `;
+      } else {
+        const habilidades = alumno.habilidades
+          ? `<div class="perfil-readonly-text">${escHtml(alumno.habilidades)}</div>`
+          : `<div class="perfil-empty-hint">No registrado aún.</div>`;
+        const horarios = alumno.horarios
+          ? `<div class="perfil-readonly-text">${escHtml(alumno.horarios)}</div>`
+          : `<div class="perfil-empty-hint">No registrado aún.</div>`;
+        document.getElementById('perfil-modal-body').innerHTML = `
+          <div class="perfil-section-title">🛠 Habilidades ${lockedBadge}</div>
+          ${habilidades}
+          <div class="perfil-section-title">🗓 Horarios disponibles</div>
+          ${horarios}
+        `;
+      }
+    }
+
+    async function guardarPerfil() {
+      const alumno = alumnos.find(a => a.id === perfilAlumnoId);
+      if (!alumno) return;
+
+      const habilidades = document.getElementById('perfil-input-habilidades')?.value.trim() || null;
+      const horarios = document.getElementById('perfil-input-horarios')?.value.trim() || null;
+
+      const btn = document.getElementById('btn-guardar-perfil');
+      btn.disabled = true;
+      btn.textContent = 'Guardando…';
+
+      const { data: alumnoActualizado, error } = await db.from('alumnos')
+        .update({ habilidades, horarios })
+        .eq('id', perfilAlumnoId)
+        .select()
+        .single();
+
+      btn.disabled = false;
+      btn.textContent = 'Guardar';
+
+      if (error) {
+        showToast('Error al guardar perfil: ' + error.message, 'error');
+        return;
+      }
+
+      const idx = alumnos.findIndex(a => a.id === perfilAlumnoId);
+      alumnos[idx] = alumnoActualizado;
+
+      renderHub(alumnoActualizado.hub);
+      closePerfilModal();
+      showToast(`Perfil de ${alumno.nombre} guardado`, 'success');
+    }
+
+    function closePerfilModal() {
+      document.getElementById('perfil-modal-overlay').classList.remove('open');
+      perfilAlumnoId = null;
+    }
+
+    /* ══════════════════════════════════════
        ELIMINAR ALUMNO
     ══════════════════════════════════════ */
     function confirmDelete(id, nombre) {
@@ -2686,6 +2886,7 @@
         closeStageModal();
         closeActivityModal();
         closeHistorialModal();
+        closePerfilModal();
       }
       if (e.key === 'Enter') {
         if (document.getElementById('modal-overlay').classList.contains('open')) guardarAlumno();
@@ -2709,6 +2910,9 @@
     });
     document.getElementById('activity-modal-overlay').addEventListener('click', function (e) {
       if (e.target === this) closeActivityModal();
+    });
+    document.getElementById('perfil-modal-overlay').addEventListener('click', function (e) {
+      if (e.target === this) closePerfilModal();
     });
 
     /* ── LOGIN: Enter key ── */
