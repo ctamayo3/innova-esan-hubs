@@ -2434,6 +2434,8 @@
       const alumno = alumnos.find(a => a.id === alumnoId);
       if (!alumno) return;
 
+      if (!confirm(`¿Eliminar este registro?\n\nEsto descontará ${horasAgregadas}h de ${alumno.nombre}.\nEsta acción no se puede deshacer.`)) return;
+
       const row = document.getElementById(`sesion-row-${sesionId}`);
       if (row) row.style.opacity = '0.3';
 
