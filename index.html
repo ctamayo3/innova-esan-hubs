@@ -2543,10 +2543,7 @@
       btn.textContent = 'Registrar';
 
       closeActivityModal();
-
-      const cardVieja = document.getElementById(`card-${activityAlumnoId}`);
-      if (cardVieja) cardVieja.replaceWith(buildCard(alumnoActualizado));
-
+      renderHub(hubParaRender);
       renderDashboard();
       showToast(`+${horas}h registradas para ${nombreAlumno} — ${actividad}`, 'success');
     }
