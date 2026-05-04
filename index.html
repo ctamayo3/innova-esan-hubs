@@ -1385,6 +1385,30 @@
       font-weight: 800;
     }
 
+    .btn-delete-sesion {
+      background: none;
+      border: none;
+      color: #d1d5db;
+      font-size: 14px;
+      cursor: pointer;
+      padding: 3px 6px;
+      border-radius: 6px;
+      transition: color 0.2s, background 0.2s;
+      line-height: 1;
+      font-family: inherit;
+    }
+
+    .btn-delete-sesion:hover {
+      color: var(--red);
+      background: #fef2f2;
+    }
+
+    .historial-table td.historial-accion {
+      padding: 6px 6px;
+      width: 32px;
+      text-align: center;
+    }
+
     .btn-historial {
       background: none;
       border: 1.5px solid var(--border);
@@ -2068,18 +2092,6 @@
 
       const hoursButtonsHtml = isAdmin ? `
       <div class="btn-groups-wrap">
-        <div class="btn-group-label">Agregar horas</div>
-        <div class="btn-group">
-          <button class="btn-hours add" onclick="changeHours(${alumno.id}, 1)">+1 h</button>
-          <button class="btn-hours add" onclick="changeHours(${alumno.id}, 2)">+2 h</button>
-          <button class="btn-hours add" onclick="changeHours(${alumno.id}, 3)">+3 h</button>
-        </div>
-        <div class="btn-group-label">Restar horas</div>
-        <div class="btn-group">
-          <button class="btn-hours sub" onclick="changeHours(${alumno.id}, -1)" ${horas < 1 ? 'disabled' : ''}>−1 h</button>
-          <button class="btn-hours sub" onclick="changeHours(${alumno.id}, -2)" ${horas < 2 ? 'disabled' : ''}>−2 h</button>
-          <button class="btn-hours sub" onclick="changeHours(${alumno.id}, -3)" ${horas < 3 ? 'disabled' : ''}>−3 h</button>
-        </div>
         <div class="btn-group" style="margin-top:4px">
           <button class="btn-hours add" style="flex:1;background:#f0f4ff;color:var(--blue);border-color:#c7d2fe" onclick="openActivityModal(${alumno.id}, '${escJs(alumno.hub)}')">📋 Registrar actividad</button>
         </div>
@@ -2349,11 +2361,19 @@
     /* ══════════════════════════════════════
        HISTORIAL DE SESIONES
     ══════════════════════════════════════ */
+    let historialAlumnoId = null;
+
     async function openHistorialModal(alumnoId) {
+      historialAlumnoId = alumnoId;
       const alumno = alumnos.find(a => a.id === alumnoId);
       document.getElementById('historial-modal-title').textContent = `Historial — ${alumno?.nombre || ''}`;
       document.getElementById('historial-modal-body').innerHTML = '<div class="historial-empty">Cargando...</div>';
       document.getElementById('historial-modal-overlay').classList.add('open');
+      await renderHistorialBody(alumnoId);
+    }
+
+    async function renderHistorialBody(alumnoId) {
+      const alumno = alumnos.find(a => a.id === alumnoId);
 
       const { data, error } = await db.from('sesiones')
         .select('*')
@@ -2370,7 +2390,7 @@
         return;
       }
 
-      const totalHoras = data.reduce((s, r) => s + (r.horas_agregadas || 0), 0);
+      const isAdmin = currentRole === 'admin';
 
       const filas = data.map(r => {
         const fecha = new Date(r.created_at).toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: '2-digit' });
@@ -2378,13 +2398,19 @@
         const nota = r.nota ? `<div class="historial-nota">${escHtml(r.nota)}</div>` : '';
         const horas = r.horas_agregadas > 0 ? `+${r.horas_agregadas}h` : `${r.horas_agregadas}h`;
         const colorHoras = r.horas_agregadas > 0 ? 'var(--green)' : 'var(--red)';
+        const deleteBtn = isAdmin
+          ? `<td class="historial-accion"><button class="btn-delete-sesion" title="Eliminar registro" onclick="eliminarSesion(${r.id}, ${alumnoId}, ${r.horas_agregadas})">✕</button></td>`
+          : '';
         return `
-        <tr>
+        <tr id="sesion-row-${r.id}">
           <td class="historial-fecha">${fecha}</td>
           <td>${actividad}${nota}</td>
           <td class="historial-horas" style="color:${colorHoras}">${horas}</td>
+          ${deleteBtn}
         </tr>`;
       }).join('');
+
+      const extraTh = isAdmin ? '<th style="width:32px"></th>' : '';
 
       document.getElementById('historial-modal-body').innerHTML = `
         <table class="historial-table">
@@ -2393,18 +2419,67 @@
               <th>Fecha</th>
               <th>Actividad</th>
               <th>Horas</th>
+              ${extraTh}
             </tr>
           </thead>
-          <tbody>${filas}</tbody>
+          <tbody id="historial-tbody">${filas}</tbody>
         </table>
-        <div class="historial-total">
+        <div class="historial-total" id="historial-total-line">
           Total acumulado: <span>${alumno.horas || 0}h / ${META}h</span>
         </div>
       `;
     }
 
+    async function eliminarSesion(sesionId, alumnoId, horasAgregadas) {
+      const alumno = alumnos.find(a => a.id === alumnoId);
+      if (!alumno) return;
+
+      const row = document.getElementById(`sesion-row-${sesionId}`);
+      if (row) row.style.opacity = '0.3';
+
+      const { error: delError } = await db.from('sesiones').delete().eq('id', sesionId);
+      if (delError) {
+        if (row) row.style.opacity = '1';
+        showToast('Error al eliminar sesión: ' + delError.message, 'error');
+        return;
+      }
+
+      const nuevasHoras = Math.max(0, (alumno.horas || 0) - horasAgregadas);
+      const { data: alumnoActualizado, error: alumnoError } = await db.from('alumnos')
+        .update({ horas: nuevasHoras })
+        .eq('id', alumnoId)
+        .select()
+        .single();
+
+      if (alumnoError) {
+        if (row) row.style.opacity = '1';
+        showToast('Error al actualizar horas: ' + alumnoError.message, 'error');
+        return;
+      }
+
+      const idx = alumnos.findIndex(a => a.id === alumnoId);
+      alumnos[idx] = alumnoActualizado;
+
+      if (row) row.remove();
+
+      const totalLine = document.getElementById('historial-total-line');
+      if (totalLine) {
+        totalLine.innerHTML = `Total acumulado: <span>${nuevasHoras}h / ${META}h</span>`;
+      }
+
+      const tbody = document.getElementById('historial-tbody');
+      if (tbody && tbody.children.length === 0) {
+        document.getElementById('historial-modal-body').innerHTML = '<div class="historial-empty">📭 Sin sesiones registradas aún.</div>';
+      }
+
+      renderHub(alumnoActualizado.hub);
+      renderDashboard();
+      showToast(`Sesión eliminada · −${horasAgregadas}h de ${alumno.nombre}`, 'success');
+    }
+
     function closeHistorialModal() {
       document.getElementById('historial-modal-overlay').classList.remove('open');
+      historialAlumnoId = null;
     }
 
     /* ══════════════════════════════════════
