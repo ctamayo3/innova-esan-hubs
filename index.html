@@ -1309,6 +1309,103 @@
       background: #dc2626;
     }
 
+    /* ── HISTORIAL MODAL ── */
+    .historial-empty {
+      text-align: center;
+      padding: 32px 0;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    .historial-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .historial-table th {
+      text-align: left;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 8px 10px;
+      border-bottom: 2px solid var(--border);
+    }
+
+    .historial-table td {
+      padding: 10px 10px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+
+    .historial-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .historial-table tr:hover td {
+      background: #fafafa;
+    }
+
+    .historial-horas {
+      font-weight: 800;
+      color: var(--green);
+      white-space: nowrap;
+    }
+
+    .historial-fecha {
+      color: var(--text-muted);
+      white-space: nowrap;
+      font-size: 12px;
+    }
+
+    .historial-nota {
+      color: var(--text-muted);
+      font-size: 12px;
+      font-style: italic;
+    }
+
+    .historial-total {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 10px 0;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-muted);
+      border-top: 2px solid var(--border);
+      margin-top: 4px;
+    }
+
+    .historial-total span {
+      color: var(--blue);
+      font-size: 16px;
+      font-weight: 800;
+    }
+
+    .btn-historial {
+      background: none;
+      border: 1.5px solid var(--border);
+      color: var(--text-muted);
+      padding: 7px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+      width: 100%;
+      margin-top: 6px;
+    }
+
+    .btn-historial:hover {
+      border-color: var(--blue);
+      color: var(--blue);
+      background: #eff6ff;
+    }
+
     /* ── RESPONSIVE ── */
     @media (max-width: 600px) {
       header {
@@ -1489,6 +1586,19 @@
       <div class="modal-actions">
         <button class="btn-cancel" onclick="closeStageModal()">Cancelar</button>
         <button class="btn-submit" id="btn-guardar-stage" onclick="guardarEtapa()">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: HISTORIAL DE SESIONES -->
+  <div class="modal-overlay" id="historial-modal-overlay">
+    <div class="modal" style="max-width:560px">
+      <h2 id="historial-modal-title">Historial de sesiones</h2>
+      <div id="historial-modal-body">
+        <div class="historial-empty">Cargando...</div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeHistorialModal()">Cerrar</button>
       </div>
     </div>
   </div>
@@ -1973,7 +2083,8 @@
         <div class="btn-group" style="margin-top:4px">
           <button class="btn-hours add" style="flex:1;background:#f0f4ff;color:var(--blue);border-color:#c7d2fe" onclick="openActivityModal(${alumno.id}, '${escJs(alumno.hub)}')">📋 Registrar actividad</button>
         </div>
-      </div>` : '';
+      </div>
+      <button class="btn-historial" onclick="openHistorialModal(${alumno.id})">🕐 Ver historial</button>` : '';
 
       const card = document.createElement('div');
       card.className = 'student-card';
@@ -2236,6 +2347,67 @@
     }
 
     /* ══════════════════════════════════════
+       HISTORIAL DE SESIONES
+    ══════════════════════════════════════ */
+    async function openHistorialModal(alumnoId) {
+      const alumno = alumnos.find(a => a.id === alumnoId);
+      document.getElementById('historial-modal-title').textContent = `Historial — ${alumno?.nombre || ''}`;
+      document.getElementById('historial-modal-body').innerHTML = '<div class="historial-empty">Cargando...</div>';
+      document.getElementById('historial-modal-overlay').classList.add('open');
+
+      const { data, error } = await db.from('sesiones')
+        .select('*')
+        .eq('alumno_id', alumnoId)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        document.getElementById('historial-modal-body').innerHTML = '<div class="historial-empty">Error al cargar historial.</div>';
+        return;
+      }
+
+      if (!data || data.length === 0) {
+        document.getElementById('historial-modal-body').innerHTML = '<div class="historial-empty">📭 Sin sesiones registradas aún.</div>';
+        return;
+      }
+
+      const totalHoras = data.reduce((s, r) => s + (r.horas_agregadas || 0), 0);
+
+      const filas = data.map(r => {
+        const fecha = new Date(r.created_at).toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: '2-digit' });
+        const actividad = escHtml(r.actividad || '—');
+        const nota = r.nota ? `<div class="historial-nota">${escHtml(r.nota)}</div>` : '';
+        const horas = r.horas_agregadas > 0 ? `+${r.horas_agregadas}h` : `${r.horas_agregadas}h`;
+        const colorHoras = r.horas_agregadas > 0 ? 'var(--green)' : 'var(--red)';
+        return `
+        <tr>
+          <td class="historial-fecha">${fecha}</td>
+          <td>${actividad}${nota}</td>
+          <td class="historial-horas" style="color:${colorHoras}">${horas}</td>
+        </tr>`;
+      }).join('');
+
+      document.getElementById('historial-modal-body').innerHTML = `
+        <table class="historial-table">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Actividad</th>
+              <th>Horas</th>
+            </tr>
+          </thead>
+          <tbody>${filas}</tbody>
+        </table>
+        <div class="historial-total">
+          Total acumulado: <span>${alumno.horas || 0}h / ${META}h</span>
+        </div>
+      `;
+    }
+
+    function closeHistorialModal() {
+      document.getElementById('historial-modal-overlay').classList.remove('open');
+    }
+
+    /* ══════════════════════════════════════
        REGISTRAR ACTIVIDAD
     ══════════════════════════════════════ */
     let activityAlumnoId = null;
@@ -2432,6 +2604,8 @@
         closeModal();
         closeConfirm();
         closeStageModal();
+        closeActivityModal();
+        closeHistorialModal();
       }
       if (e.key === 'Enter') {
         if (document.getElementById('modal-overlay').classList.contains('open')) guardarAlumno();
@@ -2449,6 +2623,12 @@
     });
     document.getElementById('stage-modal-overlay').addEventListener('click', function (e) {
       if (e.target === this) closeStageModal();
+    });
+    document.getElementById('historial-modal-overlay').addEventListener('click', function (e) {
+      if (e.target === this) closeHistorialModal();
+    });
+    document.getElementById('activity-modal-overlay').addEventListener('click', function (e) {
+      if (e.target === this) closeActivityModal();
     });
 
     /* ── LOGIN: Enter key ── */
