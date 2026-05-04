@@ -1198,6 +1198,32 @@
       }
     }
 
+    /* ── ACTIVITY MODAL ── */
+    .btn-hora-rapida {
+      flex: 1;
+      padding: 10px;
+      border: 2px solid var(--border);
+      background: #fff;
+      border-radius: var(--radius-sm);
+      font-size: 15px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+      color: var(--blue);
+    }
+
+    .btn-hora-rapida:hover {
+      border-color: var(--blue);
+      background: #eff6ff;
+    }
+
+    .btn-hora-rapida.selected {
+      background: var(--blue);
+      color: #fff;
+      border-color: var(--blue);
+    }
+
     /* ── CONFIRM DIALOG ── */
     .confirm-overlay {
       display: none;
@@ -1463,6 +1489,36 @@
       <div class="modal-actions">
         <button class="btn-cancel" onclick="closeStageModal()">Cancelar</button>
         <button class="btn-submit" id="btn-guardar-stage" onclick="guardarEtapa()">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: REGISTRAR ACTIVIDAD -->
+  <div class="modal-overlay" id="activity-modal-overlay">
+    <div class="modal">
+      <h2 id="activity-modal-title">Registrar actividad</h2>
+      <div class="form-group">
+        <label>Actividad</label>
+        <input type="text" id="input-actividad" placeholder="Escribe o elige una actividad..." autocomplete="off" list="actividades-list" />
+        <datalist id="actividades-list"></datalist>
+        <div class="field-hint">Se guardará para usarla de nuevo en este HUB</div>
+      </div>
+      <div class="form-group">
+        <label>Horas</label>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <button class="btn-hora-rapida" onclick="selectHoraRapida(this,1)">+1</button>
+          <button class="btn-hora-rapida" onclick="selectHoraRapida(this,2)">+2</button>
+          <button class="btn-hora-rapida" onclick="selectHoraRapida(this,3)">+3</button>
+        </div>
+        <input type="number" id="input-horas-actividad" placeholder="O escribe el número de horas" min="1" max="99" autocomplete="off" />
+      </div>
+      <div class="form-group">
+        <label>Nota <span style="font-weight:400;color:var(--text-muted)">(opcional)</span></label>
+        <input type="text" id="input-nota-actividad" placeholder="Ej: asistió al taller de pitch..." autocomplete="off" />
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeActivityModal()">Cancelar</button>
+        <button class="btn-submit" id="btn-registrar-actividad" onclick="registrarActividad()">Registrar</button>
       </div>
     </div>
   </div>
@@ -1914,6 +1970,9 @@
           <button class="btn-hours sub" onclick="changeHours(${alumno.id}, -2)" ${horas < 2 ? 'disabled' : ''}>−2 h</button>
           <button class="btn-hours sub" onclick="changeHours(${alumno.id}, -3)" ${horas < 3 ? 'disabled' : ''}>−3 h</button>
         </div>
+        <div class="btn-group" style="margin-top:4px">
+          <button class="btn-hours add" style="flex:1;background:#f0f4ff;color:var(--blue);border-color:#c7d2fe" onclick="openActivityModal(${alumno.id}, '${escJs(alumno.hub)}')">📋 Registrar actividad</button>
+        </div>
       </div>` : '';
 
       const card = document.createElement('div');
@@ -2174,6 +2233,144 @@
         switchTab(hub);
         showToast(`${nombre} agregado a ${hub}`, 'success');
       }
+    }
+
+    /* ══════════════════════════════════════
+       REGISTRAR ACTIVIDAD
+    ══════════════════════════════════════ */
+    let activityAlumnoId = null;
+    let activityAlumnoHub = null;
+    let actividadesCache = {}; // { hub: [nombre, nombre, ...] }
+
+    async function openActivityModal(alumnoId, alumnoHub) {
+      activityAlumnoId = alumnoId;
+      activityAlumnoHub = alumnoHub;
+
+      const alumno = alumnos.find(a => a.id === alumnoId);
+      document.getElementById('activity-modal-title').textContent = `Registrar actividad — ${alumno?.nombre || ''}`;
+      document.getElementById('input-actividad').value = '';
+      document.getElementById('input-horas-actividad').value = '';
+      document.getElementById('input-nota-actividad').value = '';
+
+      // Quitar selección de botones rápidos
+      document.querySelectorAll('.btn-hora-rapida').forEach(b => b.classList.remove('selected'));
+
+      // Cargar sugerencias de actividades del hub
+      await loadActividadesSugerencias(alumnoHub);
+
+      document.getElementById('activity-modal-overlay').classList.add('open');
+      setTimeout(() => document.getElementById('input-actividad').focus(), 100);
+    }
+
+    function closeActivityModal() {
+      document.getElementById('activity-modal-overlay').classList.remove('open');
+      activityAlumnoId = null;
+      activityAlumnoHub = null;
+    }
+
+    function selectHoraRapida(btn, horas) {
+      document.querySelectorAll('.btn-hora-rapida').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      document.getElementById('input-horas-actividad').value = horas;
+    }
+
+    async function loadActividadesSugerencias(hub) {
+      if (actividadesCache[hub]) {
+        renderDatalist(actividadesCache[hub]);
+        return;
+      }
+      const { data, error } = await db.from('actividades_hub').select('nombre').eq('hub', hub).order('nombre');
+      if (!error && data) {
+        actividadesCache[hub] = data.map(r => r.nombre);
+        renderDatalist(actividadesCache[hub]);
+      }
+    }
+
+    function renderDatalist(nombres) {
+      const dl = document.getElementById('actividades-list');
+      dl.innerHTML = '';
+      nombres.forEach(n => {
+        const opt = document.createElement('option');
+        opt.value = n;
+        dl.appendChild(opt);
+      });
+    }
+
+    async function registrarActividad() {
+      const actividad = document.getElementById('input-actividad').value.trim();
+      const horas = parseInt(document.getElementById('input-horas-actividad').value);
+      const nota = document.getElementById('input-nota-actividad').value.trim();
+
+      if (!actividad) {
+        const inp = document.getElementById('input-actividad');
+        inp.focus();
+        inp.style.borderColor = '#ef4444';
+        setTimeout(() => inp.style.borderColor = '', 1500);
+        return;
+      }
+
+      if (!horas || horas < 1) {
+        const inp = document.getElementById('input-horas-actividad');
+        inp.focus();
+        inp.style.borderColor = '#ef4444';
+        setTimeout(() => inp.style.borderColor = '', 1500);
+        return;
+      }
+
+      const btn = document.getElementById('btn-registrar-actividad');
+      btn.disabled = true;
+      btn.textContent = 'Registrando…';
+
+      // 1. Registrar sesión
+      const { error: sesionError } = await db.from('sesiones').insert({
+        alumno_id: activityAlumnoId,
+        horas_agregadas: horas,
+        actividad: actividad,
+        nota: nota || null
+      });
+
+      if (sesionError) {
+        btn.disabled = false;
+        btn.textContent = 'Registrar';
+        showToast('Error al registrar sesión: ' + sesionError.message, 'error');
+        return;
+      }
+
+      // 2. Actualizar horas del alumno
+      const alumno = alumnos.find(a => a.id === activityAlumnoId);
+      const nuevasHoras = (alumno.horas || 0) + horas;
+
+      const { data: alumnoActualizado, error: alumnoError } = await db.from('alumnos')
+        .update({ horas: nuevasHoras })
+        .eq('id', activityAlumnoId)
+        .select()
+        .single();
+
+      if (alumnoError) {
+        btn.disabled = false;
+        btn.textContent = 'Registrar';
+        showToast('Error al actualizar horas: ' + alumnoError.message, 'error');
+        return;
+      }
+
+      // 3. Guardar actividad en catálogo si es nueva
+      const cache = actividadesCache[activityAlumnoHub] || [];
+      if (!cache.includes(actividad)) {
+        await db.from('actividades_hub').insert({ hub: activityAlumnoHub, nombre: actividad });
+        actividadesCache[activityAlumnoHub] = [...cache, actividad].sort();
+      }
+
+      // 4. Actualizar estado local
+      const idx = alumnos.findIndex(a => a.id === activityAlumnoId);
+      alumnos[idx] = alumnoActualizado;
+
+      btn.disabled = false;
+      btn.textContent = 'Registrar';
+
+      closeActivityModal();
+      renderHub(activityAlumnoHub);
+      renderDashboard();
+      showToast(`+${horas}h registradas para ${alumno.nombre} — ${actividad}`, 'success');
     }
 
     /* ══════════════════════════════════════
