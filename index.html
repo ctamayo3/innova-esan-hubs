@@ -1547,6 +1547,110 @@
       background: #eff6ff;
     }
 
+    /* ── REPORTES ── */
+    .reporte-estado {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 10px;
+      border-radius: 20px;
+      white-space: nowrap;
+    }
+
+    .reporte-estado.pendiente {
+      background: #fef3c7;
+      color: #92400e;
+      border: 1.5px solid #fcd34d;
+    }
+
+    .reporte-estado.aprobado {
+      background: #d1fae5;
+      color: #065f46;
+      border: 1.5px solid #6ee7b7;
+    }
+
+    .reporte-estado.rechazado {
+      background: #fee2e2;
+      color: #991b1b;
+      border: 1.5px solid #fca5a5;
+    }
+
+    .btn-reporte {
+      background: none;
+      border: 1.5px solid var(--border);
+      color: var(--text-muted);
+      padding: 3px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+      white-space: nowrap;
+    }
+
+    .btn-reporte:hover {
+      border-color: var(--blue);
+      color: var(--blue);
+      background: #eff6ff;
+    }
+
+    .btn-reporte.aprobar:hover {
+      border-color: var(--green);
+      color: var(--green);
+      background: #d1fae5;
+    }
+
+    .btn-reporte.rechazar:hover {
+      border-color: var(--red);
+      color: var(--red);
+      background: #fee2e2;
+    }
+
+    .reporte-form {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      padding: 16px 0 4px;
+    }
+
+    .reporte-form label {
+      display: block;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+
+    .reporte-form input,
+    .reporte-form textarea {
+      width: 100%;
+      border: 2px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text);
+      background: var(--bg);
+      outline: none;
+      transition: border-color 0.2s;
+      font-family: inherit;
+      resize: vertical;
+    }
+
+    .reporte-form input:focus,
+    .reporte-form textarea:focus {
+      border-color: var(--orange);
+    }
+
+    .reporte-form input:disabled {
+      background: #f9fafb;
+      color: var(--text-muted);
+      cursor: default;
+    }
+
     /* ── RESPONSIVE ── */
     @media (max-width: 600px) {
       header {
@@ -1793,6 +1897,18 @@
       <div class="modal-actions">
         <button class="btn-cancel" onclick="closeActivityModal()">Cancelar</button>
         <button class="btn-submit" id="btn-registrar-actividad" onclick="registrarActividad()">Registrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: REPORTE DE SESION -->
+  <div class="modal-overlay" id="reporte-modal-overlay">
+    <div class="modal" style="max-width:520px">
+      <h2 id="reporte-modal-title">Reporte de sesión</h2>
+      <div id="reporte-modal-body"></div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeReporteModal()">Cerrar</button>
+        <button class="btn-submit" id="btn-guardar-reporte" onclick="guardarReporte()" style="display:none">Enviar reporte</button>
       </div>
     </div>
   </div>
@@ -2640,6 +2756,13 @@
         return;
       }
 
+      // Cargar reportes de este alumno
+      const { data: reportes } = await db.from('reportes')
+        .select('*')
+        .eq('alumno_id', alumnoId);
+      const reportesPorSesion = {};
+      (reportes || []).forEach(r => { reportesPorSesion[r.sesion_id] = r; });
+
       const isAdmin = currentRole === 'admin';
 
       const filas = data.map(r => {
@@ -2648,6 +2771,26 @@
         const nota = r.nota ? `<div class="historial-nota">${escHtml(r.nota)}</div>` : '';
         const horas = r.horas_agregadas > 0 ? `+${r.horas_agregadas}h` : `${r.horas_agregadas}h`;
         const colorHoras = r.horas_agregadas > 0 ? 'var(--green)' : 'var(--red)';
+
+        const reporte = reportesPorSesion[r.id];
+        let reporteCell = '';
+        if (reporte) {
+          const estadoLabel = reporte.estado === 'aprobado' ? '✅ Aprobado' : reporte.estado === 'rechazado' ? '❌ Rechazado' : '🟡 Pendiente';
+          const adminBtns = isAdmin && reporte.estado === 'pendiente'
+            ? `<div style="display:flex;gap:4px;margin-top:4px">
+                <button class="btn-reporte aprobar" onclick="cambiarEstadoReporte(${reporte.id}, 'aprobado', ${alumnoId})">✅ Aprobar</button>
+                <button class="btn-reporte rechazar" onclick="cambiarEstadoReporte(${reporte.id}, 'rechazado', ${alumnoId})">❌ Rechazar</button>
+               </div>`
+            : '';
+          const verBtn = `<button class="btn-reporte" onclick="verReporte(${reporte.id}, ${alumnoId})">Ver</button>`;
+          reporteCell = `<td style="min-width:120px"><span class="reporte-estado ${reporte.estado}">${estadoLabel}</span>${adminBtns ? adminBtns : '<br>' + verBtn}</td>`;
+        } else {
+          const puedeReportar = isAdmin || currentAlumnoId === alumnoId;
+          reporteCell = puedeReportar
+            ? `<td><button class="btn-reporte" onclick="openReporteModal(${r.id}, ${alumnoId})">📝 Reportar</button></td>`
+            : `<td><span style="font-size:12px;color:var(--text-muted)">Sin reporte</span></td>`;
+        }
+
         const deleteBtn = isAdmin
           ? `<td class="historial-accion"><button class="btn-delete-sesion" title="Eliminar registro" onclick="eliminarSesion(${r.id}, ${alumnoId}, ${r.horas_agregadas})">✕</button></td>`
           : '';
@@ -2656,6 +2799,7 @@
           <td class="historial-fecha">${fecha}</td>
           <td>${actividad}${nota}</td>
           <td class="historial-horas" style="color:${colorHoras}">${horas}</td>
+          ${reporteCell}
           ${deleteBtn}
         </tr>`;
       }).join('');
@@ -2669,6 +2813,7 @@
               <th>Fecha</th>
               <th>Actividad</th>
               <th>Horas</th>
+              <th>Reporte</th>
               ${extraTh}
             </tr>
           </thead>
@@ -2876,6 +3021,127 @@
     }
 
     /* ══════════════════════════════════════
+       REPORTES
+    ══════════════════════════════════════ */
+    let reporteSesionId = null;
+    let reporteAlumnoId = null;
+
+    async function openReporteModal(sesionId, alumnoId) {
+      reporteSesionId = sesionId;
+      reporteAlumnoId = alumnoId;
+      const alumno = alumnos.find(a => a.id === alumnoId);
+
+      document.getElementById('reporte-modal-title').textContent = 'Nuevo reporte de sesión';
+      document.getElementById('btn-guardar-reporte').style.display = '';
+      document.getElementById('reporte-modal-body').innerHTML = `
+        <div class="reporte-form">
+          <div>
+            <label>Nombre del alumno</label>
+            <input type="text" value="${escHtml(alumno?.nombre || '')}" disabled />
+          </div>
+          <div>
+            <label>¿A quién fue la asesoría?</label>
+            <input type="text" id="reporte-asesorado" placeholder="Ej: Emprendedor del TechHUB, Juan Pérez..." autocomplete="off" />
+          </div>
+          <div>
+            <label>Asunto o motivo</label>
+            <input type="text" id="reporte-asunto" placeholder="Ej: Revisión de modelo de negocio..." autocomplete="off" />
+          </div>
+          <div>
+            <label>Descripción de lo realizado</label>
+            <textarea id="reporte-descripcion" rows="4" placeholder="Describe con detalle lo que se hizo en la asesoría..."></textarea>
+          </div>
+        </div>
+      `;
+      document.getElementById('reporte-modal-overlay').classList.add('open');
+    }
+
+    async function verReporte(reporteId, alumnoId) {
+      const { data: reporte, error } = await db.from('reportes').select('*').eq('id', reporteId).single();
+      if (error || !reporte) { showToast('Error al cargar reporte', 'error'); return; }
+
+      const alumno = alumnos.find(a => a.id === alumnoId);
+      const estadoLabel = reporte.estado === 'aprobado' ? '✅ Aprobado' : reporte.estado === 'rechazado' ? '❌ Rechazado' : '🟡 Pendiente';
+
+      document.getElementById('reporte-modal-title').textContent = 'Reporte de sesión';
+      document.getElementById('btn-guardar-reporte').style.display = 'none';
+      document.getElementById('reporte-modal-body').innerHTML = `
+        <div style="margin-bottom:12px">
+          <span class="reporte-estado ${reporte.estado}">${estadoLabel}</span>
+        </div>
+        <div class="reporte-form">
+          <div>
+            <label>Nombre del alumno</label>
+            <input type="text" value="${escHtml(alumno?.nombre || '')}" disabled />
+          </div>
+          <div>
+            <label>¿A quién fue la asesoría?</label>
+            <input type="text" value="${escHtml(reporte.asesorado || '')}" disabled />
+          </div>
+          <div>
+            <label>Asunto o motivo</label>
+            <input type="text" value="${escHtml(reporte.asunto || '')}" disabled />
+          </div>
+          <div>
+            <label>Descripción de lo realizado</label>
+            <textarea rows="4" disabled>${escHtml(reporte.descripcion || '')}</textarea>
+          </div>
+        </div>
+      `;
+      document.getElementById('reporte-modal-overlay').classList.add('open');
+    }
+
+    async function guardarReporte() {
+      const asesorado = document.getElementById('reporte-asesorado')?.value.trim();
+      const asunto = document.getElementById('reporte-asunto')?.value.trim();
+      const descripcion = document.getElementById('reporte-descripcion')?.value.trim();
+
+      if (!asesorado) { showToast('Indica a quién fue la asesoría', 'error'); return; }
+      if (!asunto) { showToast('Indica el asunto de la asesoría', 'error'); return; }
+      if (!descripcion) { showToast('Escribe la descripción', 'error'); return; }
+
+      const btn = document.getElementById('btn-guardar-reporte');
+      btn.disabled = true;
+      btn.textContent = 'Enviando…';
+
+      const { error } = await db.from('reportes').insert({
+        sesion_id: reporteSesionId,
+        alumno_id: reporteAlumnoId,
+        asesorado,
+        asunto,
+        descripcion,
+        estado: 'pendiente'
+      });
+
+      btn.disabled = false;
+      btn.textContent = 'Enviar reporte';
+
+      if (error) { showToast('Error al enviar reporte: ' + error.message, 'error'); return; }
+
+      closeReporteModal();
+      showToast('Reporte enviado — pendiente de revisión', 'success');
+      await renderHistorialBody(reporteAlumnoId);
+    }
+
+    async function cambiarEstadoReporte(reporteId, nuevoEstado, alumnoId) {
+      const label = nuevoEstado === 'aprobado' ? 'aprobar' : 'rechazar';
+      if (!confirm(`¿Deseas ${label} este reporte?`)) return;
+
+      const { error } = await db.from('reportes').update({ estado: nuevoEstado }).eq('id', reporteId);
+      if (error) { showToast('Error al actualizar reporte', 'error'); return; }
+
+      const msg = nuevoEstado === 'aprobado' ? '✅ Reporte aprobado' : '❌ Reporte rechazado';
+      showToast(msg, 'success');
+      await renderHistorialBody(alumnoId);
+    }
+
+    function closeReporteModal() {
+      document.getElementById('reporte-modal-overlay').classList.remove('open');
+      reporteSesionId = null;
+      reporteAlumnoId = null;
+    }
+
+    /* ══════════════════════════════════════
        PERFIL DE ALUMNO
     ══════════════════════════════════════ */
     let perfilAlumnoId = null;
@@ -3022,6 +3288,7 @@
         closeStageModal();
         closeActivityModal();
         closeHistorialModal();
+        closeReporteModal();
         closePerfilModal();
       }
       if (e.key === 'Enter') {
@@ -3046,6 +3313,9 @@
     });
     document.getElementById('activity-modal-overlay').addEventListener('click', function (e) {
       if (e.target === this) closeActivityModal();
+    });
+    document.getElementById('reporte-modal-overlay').addEventListener('click', function (e) {
+      if (e.target === this) closeReporteModal();
     });
     document.getElementById('perfil-modal-overlay').addEventListener('click', function (e) {
       if (e.target === this) closePerfilModal();
