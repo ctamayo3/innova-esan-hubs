@@ -1547,6 +1547,58 @@
       background: #eff6ff;
     }
 
+    /* ── REPORTES PENDIENTES DASHBOARD ── */
+    .reportes-pendientes-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+      overflow: hidden;
+      margin-bottom: 32px;
+    }
+
+    .reportes-pendientes-table th {
+      text-align: left;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 10px 14px;
+      border-bottom: 2px solid var(--border);
+      background: #fafafa;
+    }
+
+    .reportes-pendientes-table td {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+
+    .reportes-pendientes-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .reportes-pendientes-table tr:hover td {
+      background: #fafafa;
+    }
+
+    .reportes-empty {
+      text-align: center;
+      padding: 28px;
+      color: var(--text-muted);
+      font-size: 13px;
+      font-weight: 600;
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+      margin-bottom: 32px;
+    }
+
     /* ── REPORTES ── */
     .reporte-estado {
       display: inline-block;
@@ -2213,6 +2265,11 @@
       <div class="hub-summary-grid" id="hub-summary-grid">
         <div class="loading-state" style="grid-column:1/-1"><div class="spinner"></div></div>
       </div>
+
+      <div class="dash-section-title">📋 Reportes pendientes</div>
+      <div id="reportes-pendientes-wrap">
+        <div class="loading-state"><div class="spinner"></div></div>
+      </div>
     `;
       main.appendChild(panel);
     }
@@ -2268,7 +2325,7 @@
     ══════════════════════════════════════ */
     async function loadAll() {
       let alumnosQuery = db.from('alumnos').select('*').order('nombre');
-      if (currentRole === 'alumno') {
+      if (currentRole === 'alumno' && currentAlumnoId) {
         alumnosQuery = db.from('alumnos').select('*').eq('id', currentAlumnoId);
       }
 
@@ -2621,6 +2678,8 @@
         card.onclick = () => switchTab(hub);
         hubGrid.appendChild(card);
       });
+
+      renderReportesPendientes();
     }
 
     /* ══════════════════════════════════════
@@ -2732,6 +2791,16 @@
 
     async function openHistorialModal(alumnoId) {
       historialAlumnoId = alumnoId;
+
+      // Refrescar datos del alumno desde Supabase
+      const { data: alumnoFresco } = await db.from('alumnos').select('*').eq('id', alumnoId).single();
+      if (alumnoFresco) {
+        const idx = alumnos.findIndex(a => a.id === alumnoId);
+        if (idx !== -1) alumnos[idx] = alumnoFresco;
+        else alumnos.push(alumnoFresco);
+        renderHub(alumnoFresco.hub);
+      }
+
       const alumno = alumnos.find(a => a.id === alumnoId);
       document.getElementById('historial-modal-title').textContent = `Historial — ${alumno?.nombre || ''}`;
       document.getElementById('historial-modal-body').innerHTML = '<div class="historial-empty">Cargando...</div>';
@@ -3063,6 +3132,13 @@
 
       const alumno = alumnos.find(a => a.id === alumnoId);
       const estadoLabel = reporte.estado === 'aprobado' ? '✅ Aprobado' : reporte.estado === 'rechazado' ? '❌ Rechazado' : '🟡 Pendiente';
+      const isAdmin = currentRole === 'admin';
+
+      const adminAcciones = isAdmin && reporte.estado === 'pendiente' ? `
+        <div style="display:flex;gap:8px;margin-top:18px">
+          <button class="btn-submit" style="background:var(--green);flex:1" onclick="cambiarEstadoReporte(${reporte.id}, 'aprobado', ${alumnoId})">✅ Aprobar reporte</button>
+          <button class="btn-submit" style="background:var(--red);flex:1" onclick="cambiarEstadoReporte(${reporte.id}, 'rechazado', ${alumnoId})">❌ Rechazar reporte</button>
+        </div>` : '';
 
       document.getElementById('reporte-modal-title').textContent = 'Reporte de sesión';
       document.getElementById('btn-guardar-reporte').style.display = 'none';
@@ -3088,6 +3164,7 @@
             <textarea rows="4" disabled>${escHtml(reporte.descripcion || '')}</textarea>
           </div>
         </div>
+        ${adminAcciones}
       `;
       document.getElementById('reporte-modal-overlay').classList.add('open');
     }
@@ -3133,7 +3210,57 @@
 
       const msg = nuevoEstado === 'aprobado' ? '✅ Reporte aprobado' : '❌ Reporte rechazado';
       showToast(msg, 'success');
-      await renderHistorialBody(alumnoId);
+      closeReporteModal();
+      if (alumnoId) await renderHistorialBody(alumnoId);
+      await renderReportesPendientes();
+    }
+
+    async function renderReportesPendientes() {
+      const wrap = document.getElementById('reportes-pendientes-wrap');
+      if (!wrap) return;
+
+      wrap.innerHTML = '<div class="loading-state"><div class="spinner"></div></div>';
+
+      const { data, error } = await db.from('reportes')
+        .select('*, alumnos(nombre, hub)')
+        .eq('estado', 'pendiente')
+        .order('created_at', { ascending: false });
+
+      if (error || !data || data.length === 0) {
+        wrap.innerHTML = '<div class="reportes-empty">✅ Sin reportes pendientes de revisión.</div>';
+        return;
+      }
+
+      const filas = data.map(r => {
+        const fecha = new Date(r.created_at).toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: '2-digit' });
+        const nombre = escHtml(r.alumnos?.nombre || '—');
+        const hub = escHtml(r.alumnos?.hub || '—');
+        const asunto = escHtml(r.asunto || '—');
+        const alumnoId = r.alumno_id;
+        return `
+        <tr>
+          <td>${fecha}</td>
+          <td><strong>${nombre}</strong></td>
+          <td>${hub}</td>
+          <td>${asunto}</td>
+          <td><button class="btn-reporte" onclick="verReporte(${r.id}, ${alumnoId})">🔍 Ver y revisar</button></td>
+        </tr>`;
+      }).join('');
+
+      wrap.innerHTML = `
+        <table class="reportes-pendientes-table">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Alumno</th>
+              <th>HUB</th>
+              <th>Asunto</th>
+              <th>Acción</th>
+            </tr>
+          </thead>
+          <tbody>${filas}</tbody>
+        </table>
+      `;
     }
 
     function closeReporteModal() {
