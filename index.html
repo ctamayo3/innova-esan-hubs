@@ -2517,8 +2517,10 @@
           <button class="btn-hours add" style="flex:1;background:#f0f4ff;color:var(--blue);border-color:#c7d2fe" onclick="openActivityModal(${alumno.id}, '${escJs(alumno.hub)}')">📋 Registrar actividad</button>
         </div>
       </div>
+      <button class="btn-historial" onclick="openNuevoReporteModal(${alumno.id})">📝 Nuevo reporte</button>
       <button class="btn-historial" onclick="openHistorialModal(${alumno.id})">🕐 Ver historial</button>
       <button class="btn-perfil" onclick="openPerfilModal(${alumno.id})">👤 Ver perfil</button>` : `
+      <button class="btn-historial" onclick="openNuevoReporteModal(${alumno.id})">📝 Nuevo reporte</button>
       <button class="btn-historial" onclick="openHistorialModal(${alumno.id})">🕐 Ver historial</button>
       <button class="btn-perfil" onclick="openPerfilModal(${alumno.id})">${perfilBtnLabel}</button>`;
 
@@ -3093,11 +3095,9 @@
     /* ══════════════════════════════════════
        REPORTES
     ══════════════════════════════════════ */
-    let reporteSesionId = null;
     let reporteAlumnoId = null;
 
-    async function openReporteModal(sesionId, alumnoId) {
-      reporteSesionId = sesionId;
+    async function openNuevoReporteModal(alumnoId) {
       reporteAlumnoId = alumnoId;
       const alumno = alumnos.find(a => a.id === alumnoId);
 
@@ -3135,9 +3135,20 @@
       const isAdmin = currentRole === 'admin';
 
       const adminAcciones = isAdmin && reporte.estado === 'pendiente' ? `
-        <div style="display:flex;gap:8px;margin-top:18px">
-          <button class="btn-submit" style="background:var(--green);flex:1" onclick="cambiarEstadoReporte(${reporte.id}, 'aprobado', ${alumnoId})">✅ Aprobar reporte</button>
-          <button class="btn-submit" style="background:var(--red);flex:1" onclick="cambiarEstadoReporte(${reporte.id}, 'rechazado', ${alumnoId})">❌ Rechazar reporte</button>
+        <div style="margin-top:18px">
+          <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px">Horas a asignar al aprobar</label>
+          <div style="display:flex;gap:8px;margin-bottom:8px">
+            <button class="btn-hora-rapida" onclick="selectHoraRapida(this,1)">+1</button>
+            <button class="btn-hora-rapida" onclick="selectHoraRapida(this,2)">+2</button>
+            <button class="btn-hora-rapida" onclick="selectHoraRapida(this,3)">+3</button>
+          </div>
+          <input type="number" id="input-horas-aprobacion" placeholder="O escribe el número de horas" min="1" max="99"
+            style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:14px;margin-bottom:12px" />
+          <span id="reporte-asunto-val" style="display:none">${escHtml(reporte.asunto || '')}</span>
+          <div style="display:flex;gap:8px">
+            <button class="btn-submit" style="background:var(--green);flex:1" onclick="aprobarReporteConHoras(${reporte.id}, ${alumnoId})">✅ Aprobar reporte</button>
+            <button class="btn-submit" style="background:var(--red);flex:1" onclick="cambiarEstadoReporte(${reporte.id}, 'rechazado', ${alumnoId}, 0)">❌ Rechazar reporte</button>
+          </div>
         </div>` : '';
 
       document.getElementById('reporte-modal-title').textContent = 'Reporte de sesión';
@@ -3183,7 +3194,7 @@
       btn.textContent = 'Enviando…';
 
       const { error } = await db.from('reportes').insert({
-        sesion_id: reporteSesionId,
+        sesion_id: null,
         alumno_id: reporteAlumnoId,
         asesorado,
         asunto,
@@ -3201,15 +3212,44 @@
       await renderHistorialBody(reporteAlumnoId);
     }
 
-    async function cambiarEstadoReporte(reporteId, nuevoEstado, alumnoId) {
+    async function cambiarEstadoReporte(reporteId, nuevoEstado, alumnoId, horas) {
       const label = nuevoEstado === 'aprobado' ? 'aprobar' : 'rechazar';
       if (!confirm(`¿Deseas ${label} este reporte?`)) return;
 
-      const { error } = await db.from('reportes').update({ estado: nuevoEstado }).eq('id', reporteId);
-      if (error) { showToast('Error al actualizar reporte', 'error'); return; }
+      if (nuevoEstado === 'aprobado') {
+        // 1. Crear sesión con las horas asignadas
+        const { data: sesionData, error: sesionError } = await db.from('sesiones').insert({
+          alumno_id: alumnoId,
+          horas_agregadas: horas,
+          actividad: document.getElementById('reporte-asunto-val')?.textContent || 'Asesoría',
+          nota: null
+        }).select().single();
+        if (sesionError) { showToast('Error al crear sesión: ' + sesionError.message, 'error'); return; }
 
-      const msg = nuevoEstado === 'aprobado' ? '✅ Reporte aprobado' : '❌ Reporte rechazado';
-      showToast(msg, 'success');
+        // 2. Vincular reporte a la sesión creada
+        const { error: linkError } = await db.from('reportes')
+          .update({ estado: 'aprobado', sesion_id: sesionData.id })
+          .eq('id', reporteId);
+        if (linkError) { showToast('Error al vincular reporte', 'error'); return; }
+
+        // 3. Sumar horas al alumno
+        const alumno = alumnos.find(a => a.id === alumnoId);
+        const nuevasHoras = (alumno.horas || 0) + horas;
+        const { data: alumnoActualizado, error: alumnoError } = await db.from('alumnos')
+          .update({ horas: nuevasHoras }).eq('id', alumnoId).select().single();
+        if (alumnoError) { showToast('Error al actualizar horas', 'error'); return; }
+
+        const idx = alumnos.findIndex(a => a.id === alumnoId);
+        alumnos[idx] = alumnoActualizado;
+        renderHub(alumnoActualizado.hub);
+        renderDashboard();
+        showToast(`✅ Reporte aprobado · +${horas}h para ${alumno.nombre}`, 'success');
+      } else {
+        const { error } = await db.from('reportes').update({ estado: 'rechazado' }).eq('id', reporteId);
+        if (error) { showToast('Error al rechazar reporte', 'error'); return; }
+        showToast('❌ Reporte rechazado', 'info');
+      }
+
       closeReporteModal();
       if (alumnoId) await renderHistorialBody(alumnoId);
       await renderReportesPendientes();
@@ -3261,6 +3301,18 @@
           <tbody>${filas}</tbody>
         </table>
       `;
+    }
+
+    async function aprobarReporteConHoras(reporteId, alumnoId) {
+      const horas = parseInt(document.getElementById('input-horas-aprobacion')?.value);
+      if (!horas || horas < 1) {
+        const inp = document.getElementById('input-horas-aprobacion');
+        inp.style.borderColor = '#ef4444';
+        setTimeout(() => inp.style.borderColor = '', 1500);
+        showToast('Ingresa las horas a asignar', 'error');
+        return;
+      }
+      await cambiarEstadoReporte(reporteId, 'aprobado', alumnoId, horas);
     }
 
     function closeReporteModal() {
