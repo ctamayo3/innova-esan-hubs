@@ -116,6 +116,26 @@
       margin-bottom: 20px;
     }
 
+    .btn-modo {
+      flex: 1;
+      padding: 10px;
+      border: 2px solid var(--border);
+      background: transparent;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+
+    .btn-modo.active {
+      background: var(--orange);
+      color: #fff;
+      border-color: var(--orange);
+    }
+
     .btn-login {
       width: 100%;
       background: var(--orange);
@@ -1585,14 +1605,11 @@
     <div class="login-box">
       <div class="login-logo">
         <svg viewBox="0 0 220 80" xmlns="http://www.w3.org/2000/svg" aria-label="Innova ESAN">
-          <!-- "innova" text -->
           <text x="0" y="52" font-family="'Segoe UI', Arial Rounded MT Bold, Arial, sans-serif" font-weight="900"
             font-size="52" fill="#F5A623" letter-spacing="-1">innova</text>
-          <!-- "esan" pill -->
           <rect x="90" y="56" width="86" height="26" rx="7" fill="#4B8EF5" />
           <text x="133" y="75" font-family="'Segoe UI', Arial, sans-serif" font-weight="900" font-size="20"
             fill="#1a1a1a" text-anchor="middle" letter-spacing="0.5">esan</text>
-          <!-- decorative dots -->
           <circle cx="202" cy="8" r="4.5" fill="#4B8EF5" />
           <circle cx="214" cy="8" r="4.5" fill="#4B8EF5" />
           <circle cx="202" cy="21" r="4.5" fill="#4B8EF5" />
@@ -1601,29 +1618,55 @@
           <circle cx="214" cy="34" r="4.5" fill="#4B8EF5" />
         </svg>
       </div>
-      <p class="login-subtitle">Ingresa tu acceso para continuar</p>
 
-      <div class="login-hub-select" id="login-hub-wrap">
-        <label>Tu HUB</label>
-        <select id="login-hub-select">
-          <option value="">— Selecciona tu HUB —</option>
-          <option value="PodcastHUB">PodcastHUB</option>
-          <option value="PsychoHUB">PsychoHUB</option>
-          <option value="TechHUB">TechHUB</option>
-          <option value="BusinessHUB">BusinessHUB</option>
-          <option value="MktHUB">MktHUB</option>
-          <option value="CreativeHUB">CreativeHUB</option>
-          <option value="LegalHUB">LegalHUB</option>
-          <option value="__admin__">Acceso Admin</option>
-        </select>
+      <!-- SELECTOR DE MODO -->
+      <div style="display:flex;gap:8px;margin-bottom:24px">
+        <button class="btn-modo active" id="btn-modo-login" onclick="setModo('login')">Iniciar sesión</button>
+        <button class="btn-modo" id="btn-modo-registro" onclick="setModo('registro')">Registrarme</button>
       </div>
 
-      <div class="login-pass-group">
-        <label>Contraseña</label>
-        <input type="password" id="login-password" placeholder="••••••••••" autocomplete="off" />
+      <!-- PANEL LOGIN -->
+      <div id="panel-login">
+        <div class="login-pass-group">
+          <label>Tipo de acceso</label>
+          <select id="login-tipo" onchange="onLoginTipoChange()" style="width:100%;border:2px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px;font-size:15px;font-weight:600;color:var(--text);background:var(--bg);outline:none;font-family:inherit;">
+            <option value="alumno">Soy alumno</option>
+            <option value="admin">Soy admin</option>
+          </select>
+        </div>
+        <div class="login-pass-group" id="login-codigo-wrap">
+          <label>Tu código de acceso</label>
+          <input type="text" id="login-codigo" placeholder="Ej: HUB-2025-001" autocomplete="off" />
+        </div>
+        <div class="login-pass-group">
+          <label>Contraseña</label>
+          <input type="password" id="login-password" placeholder="••••••••••" autocomplete="off" />
+        </div>
+        <button class="btn-login" onclick="doLogin()">Ingresar</button>
       </div>
 
-      <button class="btn-login" onclick="doLogin()">Ingresar</button>
+      <!-- PANEL REGISTRO -->
+      <div id="panel-registro" style="display:none">
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:20px;font-weight:500;">Usa el código que te proporcionó tu coordinador para crear tu acceso.</p>
+        <div class="login-pass-group">
+          <label>Tu código de acceso</label>
+          <input type="text" id="reg-codigo" placeholder="Ej: HUB-2025-001" autocomplete="off" />
+        </div>
+        <div class="login-pass-group">
+          <label>Tu nombre</label>
+          <input type="text" id="reg-nombre" placeholder="Ej: María" autocomplete="off" />
+        </div>
+        <div class="login-pass-group">
+          <label>Crea tu contraseña</label>
+          <input type="password" id="reg-password" placeholder="Mínimo 6 caracteres" autocomplete="off" />
+        </div>
+        <div class="login-pass-group">
+          <label>Confirma tu contraseña</label>
+          <input type="password" id="reg-password2" placeholder="Repite tu contraseña" autocomplete="off" />
+        </div>
+        <button class="btn-login" onclick="doRegistro()">Crear acceso</button>
+      </div>
+
       <div class="login-error" id="login-error"></div>
     </div>
   </div>
@@ -1685,8 +1728,8 @@
       </div>
       <div class="form-group">
         <label>Código de alumno</label>
-        <input type="text" id="input-codigo" placeholder="Ej: 2024-01234" autocomplete="off" />
-        <div class="field-hint">Opcional — identificador del alumno</div>
+        <input type="text" id="input-codigo" placeholder="Ej: HUB-2025-001" autocomplete="off" />
+        <div class="field-hint">Código único que el alumno usará para registrarse en la app</div>
       </div>
       <div class="form-group">
         <label>HUB</label>
@@ -1803,17 +1846,7 @@
 
     const STAGES = ['Producción', 'Grabación', 'Edición', 'Post producción'];
 
-    // ── PASSWORDS (cambiar antes de producción si se desea) ──
-    const PASSWORDS = {
-      __admin__: 'innoAdmin2025',
-      PodcastHUB: 'pod#Cast11',
-      PsychoHUB: 'psy#Mind22',
-      TechHUB: 'tec#Code33',
-      BusinessHUB: 'biz#Esan44',
-      MktHUB: 'mkt#Brand55',
-      CreativeHUB: 'cre#Arte66',
-      LegalHUB: 'leg#Ley77',
-    };
+    // Contraseña admin — cambiar antes de producción si se desea
 
     /* ══════════════════════════════════════
        SESSION STATE
@@ -1835,39 +1868,136 @@
     /* ══════════════════════════════════════
        LOGIN
     ══════════════════════════════════════ */
-    function doLogin() {
-      const hub = document.getElementById('login-hub-select').value;
-      const pass = document.getElementById('login-password').value;
-      const err = document.getElementById('login-error');
+    const ADMIN_PASSWORD = 'innoAdmin2025';
+    let currentAlumnoId = null;
 
-      if (!hub) { err.textContent = 'Selecciona tu HUB o acceso admin.'; return; }
+    function setModo(modo) {
+      const esLogin = modo === 'login';
+      document.getElementById('panel-login').style.display = esLogin ? '' : 'none';
+      document.getElementById('panel-registro').style.display = esLogin ? 'none' : '';
+      document.getElementById('btn-modo-login').classList.toggle('active', esLogin);
+      document.getElementById('btn-modo-registro').classList.toggle('active', !esLogin);
+      document.getElementById('login-error').textContent = '';
+    }
+
+    function onLoginTipoChange() {
+      const tipo = document.getElementById('login-tipo').value;
+      document.getElementById('login-codigo-wrap').style.display = tipo === 'admin' ? 'none' : '';
+    }
+
+    async function doLogin() {
+      const err = document.getElementById('login-error');
+      const tipo = document.getElementById('login-tipo').value;
+      const pass = document.getElementById('login-password').value;
+
       if (!pass) { err.textContent = 'Ingresa tu contraseña.'; return; }
 
-      if (PASSWORDS[hub] !== pass) {
-        err.textContent = 'Contraseña incorrecta. Intenta de nuevo.';
+      if (tipo === 'admin') {
+        if (pass !== ADMIN_PASSWORD) {
+          err.textContent = 'Contraseña incorrecta.';
+          document.getElementById('login-password').value = '';
+          return;
+        }
+        currentRole = 'admin';
+        currentHub = null;
+        currentAlumnoId = null;
+        entrarApp();
+        return;
+      }
+
+      // Login alumno
+      const codigo = document.getElementById('login-codigo').value.trim();
+      if (!codigo) { err.textContent = 'Ingresa tu código de acceso.'; return; }
+
+      const { data, error } = await db.from('alumnos')
+        .select('*')
+        .eq('codigo_app', codigo)
+        .single();
+
+      if (error || !data) {
+        err.textContent = 'Código no encontrado. Verifica con tu coordinador.';
+        return;
+      }
+
+      if (!data.password) {
+        err.textContent = 'Aún no tienes acceso creado. Ve a "Registrarme".';
+        return;
+      }
+
+      if (data.password !== pass) {
+        err.textContent = 'Contraseña incorrecta.';
         document.getElementById('login-password').value = '';
         return;
       }
 
-      err.textContent = '';
+      currentRole = 'alumno';
+      currentHub = data.hub;
+      currentAlumnoId = data.id;
+      entrarApp();
+    }
 
-      if (hub === '__admin__') {
-        currentRole = 'admin';
-        currentHub = null;
-      } else {
-        currentRole = 'alumno';
-        currentHub = hub;
+    async function doRegistro() {
+      const err = document.getElementById('login-error');
+      const codigo = document.getElementById('reg-codigo').value.trim();
+      const nombre = document.getElementById('reg-nombre').value.trim();
+      const pass = document.getElementById('reg-password').value;
+      const pass2 = document.getElementById('reg-password2').value;
+
+      if (!codigo) { err.textContent = 'Ingresa tu código de acceso.'; return; }
+      if (!nombre) { err.textContent = 'Ingresa tu nombre.'; return; }
+      if (!pass) { err.textContent = 'Crea una contraseña.'; return; }
+      if (pass.length < 6) { err.textContent = 'La contraseña debe tener al menos 6 caracteres.'; return; }
+      if (pass !== pass2) { err.textContent = 'Las contraseñas no coinciden.'; return; }
+
+      const { data, error } = await db.from('alumnos')
+        .select('*')
+        .eq('codigo_app', codigo)
+        .single();
+
+      if (error || !data) {
+        err.textContent = 'Código no válido. Verifica con tu coordinador.';
+        return;
       }
 
+      if (data.password) {
+        err.textContent = 'Este código ya tiene un acceso creado. Usa "Iniciar sesión".';
+        return;
+      }
+
+      if (data.nombre.toLowerCase() !== nombre.toLowerCase()) {
+        err.textContent = 'El nombre no coincide con el registrado para este código.';
+        return;
+      }
+
+      const { error: updateError } = await db.from('alumnos')
+        .update({ password: pass })
+        .eq('id', data.id);
+
+      if (updateError) {
+        err.textContent = 'Error al crear acceso. Intenta de nuevo.';
+        return;
+      }
+
+      err.style.color = 'var(--green)';
+      err.textContent = '✅ Acceso creado. Ya puedes iniciar sesión.';
+      setTimeout(() => {
+        err.style.color = '';
+        err.textContent = '';
+        setModo('login');
+        document.getElementById('login-codigo').value = codigo;
+      }, 2000);
+    }
+
+    function entrarApp() {
       document.getElementById('login-screen').style.display = 'none';
       document.getElementById('app-wrapper').classList.add('visible');
-
       initApp();
     }
 
     function doLogout() {
       currentRole = null;
       currentHub = null;
+      currentAlumnoId = null;
       alumnos = [];
       hubEstados = {};
       activeTab = DASHBOARD_ID;
@@ -1875,10 +2005,10 @@
       document.getElementById('app-wrapper').classList.remove('visible');
       document.getElementById('login-screen').style.display = 'flex';
       document.getElementById('login-password').value = '';
-      document.getElementById('login-hub-select').value = '';
+      document.getElementById('login-codigo').value = '';
       document.getElementById('login-error').textContent = '';
+      setModo('login');
 
-      // Clear UI
       document.getElementById('tabs').innerHTML = '';
       document.getElementById('main-content').innerHTML = '';
     }
@@ -2021,8 +2151,13 @@
        LOAD DATA
     ══════════════════════════════════════ */
     async function loadAll() {
+      let alumnosQuery = db.from('alumnos').select('*').order('nombre');
+      if (currentRole === 'alumno') {
+        alumnosQuery = db.from('alumnos').select('*').eq('id', currentAlumnoId);
+      }
+
       const [alumnosRes, estadosRes] = await Promise.all([
-        db.from('alumnos').select('*').order('nombre'),
+        alumnosQuery,
         db.from('hub_estado').select('*')
       ]);
 
@@ -2186,8 +2321,8 @@
       const pct = Math.min(100, Math.round((horas / META) * 100));
       const done = horas >= META;
       const initials = alumno.nombre.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
-      const codigoHtml = alumno.codigo
-        ? `<div class="student-codigo">${escHtml(alumno.codigo)}</div>`
+      const codigoHtml = alumno.codigo_app
+        ? `<div class="student-codigo">${escHtml(alumno.codigo_app)}</div>`
         : '';
 
       const isAdmin = currentRole === 'admin';
@@ -2423,7 +2558,7 @@
       if (editingId !== null) {
         // ── EDIT MODE ──
         const payload = { nombre, hub };
-        payload.codigo = codigo || null;
+        payload.codigo_app = codigo || null;
 
         const { data, error } = await db.from('alumnos')
           .update(payload)
@@ -2450,7 +2585,7 @@
       } else {
         // ── ADD MODE ──
         const payload = { nombre, hub, horas: 0 };
-        if (codigo) payload.codigo = codigo;
+        if (codigo) payload.codigo_app = codigo;
 
         const { data, error } = await db.from('alumnos')
           .insert(payload)
