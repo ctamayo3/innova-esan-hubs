@@ -2223,6 +2223,7 @@
     function renderStageBar(hub) {
       const wrap = document.getElementById(`stage-wrap-${hub}`);
       if (!wrap) return;
+      if (hub !== 'PodcastHUB') { wrap.innerHTML = ''; return; }
 
       const etapaIdx = hubEstados[hub] ?? 0;
       const etapaNombre = STAGES[etapaIdx];
