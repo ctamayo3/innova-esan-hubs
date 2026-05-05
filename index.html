@@ -1855,6 +1855,7 @@
         <div class="role-badge" id="role-badge"></div>
         <button class="btn-add-global" id="btn-add-global" onclick="openModal()" style="display:none">+ Agregar
           alumno</button>
+        <button class="btn-logout" onclick="refrescarApp()" style="background:var(--blue);margin-right:6px">🔄 Actualizar</button>
         <button class="btn-logout" onclick="doLogout()">Salir</button>
       </div>
     </header>
@@ -2069,6 +2070,9 @@
         currentRole = 'admin';
         currentHub = null;
         currentAlumnoId = null;
+        localStorage.setItem('hubs_role', 'admin');
+        localStorage.setItem('hubs_alumno_id', '');
+        localStorage.setItem('hubs_hub', '');
         entrarApp();
         return;
       }
@@ -2101,6 +2105,9 @@
       currentRole = 'alumno';
       currentHub = data.hub;
       currentAlumnoId = data.id;
+      localStorage.setItem('hubs_role', 'alumno');
+      localStorage.setItem('hubs_alumno_id', data.id);
+      localStorage.setItem('hubs_hub', data.hub);
       entrarApp();
     }
 
@@ -2162,10 +2169,41 @@
       initApp();
     }
 
+    async function restaurarSesion() {
+      const role = localStorage.getItem('hubs_role');
+      if (!role) return;
+      if (role === 'admin') {
+        currentRole = 'admin';
+        currentHub = null;
+        currentAlumnoId = null;
+        entrarApp();
+      } else if (role === 'alumno') {
+        const id = parseInt(localStorage.getItem('hubs_alumno_id'));
+        const hub = localStorage.getItem('hubs_hub');
+        if (!id || !hub) return;
+        currentRole = 'alumno';
+        currentAlumnoId = id;
+        currentHub = hub;
+        entrarApp();
+      }
+    }
+
+    async function refrescarApp() {
+      alumnos = [];
+      hubEstados = {};
+      await loadAll();
+      showToast('Datos actualizados', 'success');
+    }
+
+    restaurarSesion();
+
     function doLogout() {
       currentRole = null;
       currentHub = null;
       currentAlumnoId = null;
+      localStorage.removeItem('hubs_role');
+      localStorage.removeItem('hubs_alumno_id');
+      localStorage.removeItem('hubs_hub');
       alumnos = [];
       hubEstados = {};
       activeTab = DASHBOARD_ID;
