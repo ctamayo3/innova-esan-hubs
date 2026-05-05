@@ -2988,6 +2988,9 @@
       document.querySelectorAll('.btn-hora-rapida').forEach(b => b.classList.remove('selected'));
       btn.classList.add('selected');
       document.getElementById('input-horas-actividad').value = horas;
+      // También actualiza el input del modal de aprobación si existe
+      const inputAprobacion = document.getElementById('input-horas-aprobacion');
+      if (inputAprobacion) inputAprobacion.value = horas;
     }
 
     async function loadActividadesSugerencias(hub) {
