@@ -1855,6 +1855,7 @@
         <div class="role-badge" id="role-badge"></div>
         <button class="btn-add-global" id="btn-add-global" onclick="openModal()" style="display:none">+ Agregar
           alumno</button>
+        <button id="btn-horarios-pdf" onclick="descargarHorariosPDF()" style="background:var(--green);color:#fff;border:none;padding:8px 14px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;margin-right:6px;display:none">📄 Horarios</button>
         <button class="btn-logout" onclick="refrescarApp()" style="background:var(--blue);margin-right:6px">🔄 Actualizar</button>
         <button class="btn-logout" onclick="doLogout()">Salir</button>
       </div>
@@ -2229,6 +2230,7 @@
         badge.textContent = '⚙️ Admin';
         badge.className = 'role-badge admin';
         document.getElementById('btn-add-global').style.display = '';
+        document.getElementById('btn-horarios-pdf').style.display = '';
       } else {
         badge.textContent = '👤 ' + currentHub;
         badge.className = 'role-badge alumno';
@@ -3360,6 +3362,57 @@
         return;
       }
       await cambiarEstadoReporte(reporteId, 'aprobado', alumnoId, horas);
+    }
+
+    function descargarHorariosPDF() {
+      const conHorarios = alumnos.filter(a => a.horarios && a.horarios.trim() !== '');
+      const sinHorarios = alumnos.filter(a => !a.horarios || a.horarios.trim() === '');
+
+      let filas = conHorarios.map(a => `
+        <tr>
+          <td>${escHtml(a.nombre)}</td>
+          <td>${escHtml(a.hub)}</td>
+          <td>${escHtml(a.horarios)}</td>
+        </tr>`).join('');
+
+      let filasSin = sinHorarios.map(a => `
+        <tr style="color:#999">
+          <td>${escHtml(a.nombre)}</td>
+          <td>${escHtml(a.hub)}</td>
+          <td style="font-style:italic">Sin registrar</td>
+        </tr>`).join('');
+
+      const fecha = new Date().toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+      const html = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<title>Horarios HUBS — Innova ESAN</title>
+<style>
+  body { font-family: Arial, sans-serif; padding: 32px; color: #1a1a1a; }
+  h1 { color: #F5A623; font-size: 22px; margin-bottom: 4px; }
+  .sub { color: #666; font-size: 13px; margin-bottom: 24px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { background: #4B4DE8; color: #fff; padding: 10px 12px; text-align: left; }
+  td { padding: 9px 12px; border-bottom: 1px solid #eee; vertical-align: top; }
+  tr:nth-child(even) td { background: #f9f9f9; }
+  .footer { margin-top: 24px; font-size: 11px; color: #aaa; text-align: right; }
+</style>
+</head><body>
+  <h1>📄 Horarios disponibles — HUBS Innova ESAN</h1>
+  <div class="sub">Generado el ${fecha} · ${conHorarios.length} alumno(s) con horario registrado</div>
+  <table>
+    <thead><tr><th>Nombre</th><th>HUB</th><th>Horarios disponibles</th></tr></thead>
+    <tbody>${filas}${filasSin}</tbody>
+  </table>
+  <div class="footer">Innova ESAN — Universidad ESAN, Lima, Perú</div>
+</body></html>`;
+
+      const blob = new Blob([html], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const win = window.open(url, '_blank');
+      if (win) {
+        win.onload = () => { win.print(); URL.revokeObjectURL(url); };
+      }
     }
 
     function closeReporteModal() {
