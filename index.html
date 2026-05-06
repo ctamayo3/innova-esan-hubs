@@ -2315,8 +2315,11 @@
     function buildHubPanels() {
       const main = document.getElementById('main-content');
 
-      // Eliminar paneles de hub previos para evitar duplicados
-      main.querySelectorAll('.tab-panel[id^="panel-"]').forEach(p => p.remove());
+      // Eliminar paneles de hub previos para evitar duplicados (excluye el Dashboard)
+      HUBS.forEach(hub => {
+        const existing = document.getElementById(`panel-${hub}`);
+        if (existing) existing.remove();
+      });
 
       const hubsToShow = currentRole === 'admin' ? HUBS : [currentHub];
 
