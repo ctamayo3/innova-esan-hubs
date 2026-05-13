@@ -2798,11 +2798,15 @@
       renderReportesPendientes();
     }
 
-    function renderNotificaciones() {
+    async function renderNotificaciones() {
       const wrap = document.getElementById('notificaciones-wrap');
       if (!wrap) return;
 
-      const vistas = JSON.parse(localStorage.getItem('hubs_notif_vistas') || '[]');
+      wrap.innerHTML = `<div class="loading-state"><div class="spinner"></div></div>`;
+
+      // Cargar keys ya vistas desde Supabase
+      const { data: vistasData } = await db.from('notificaciones_vistas').select('key');
+      const vistas = (vistasData || []).map(r => r.key);
 
       const notifs = [];
       alumnos.forEach(a => {
@@ -2840,14 +2844,16 @@
         </div>`).join('')}</div>`;
     }
 
-    function marcarNotifVista(key) {
-      const vistas = JSON.parse(localStorage.getItem('hubs_notif_vistas') || '[]');
-      if (!vistas.includes(key)) vistas.push(key);
-      localStorage.setItem('hubs_notif_vistas', JSON.stringify(vistas));
+    async function marcarNotifVista(key) {
+      const { error } = await db.from('notificaciones_vistas').insert({ key });
+      if (error && error.code !== '23505') {
+        showToast('Error al marcar notificación', 'error');
+        return;
+      }
       const el = document.getElementById(`notif-${key}`);
       if (el) el.remove();
       const wrap = document.getElementById('notificaciones-wrap');
-      if (wrap && wrap.querySelector('.notif-wrap') && wrap.querySelectorAll('.notif-item').length === 0) {
+      if (wrap && wrap.querySelectorAll('.notif-item').length === 0) {
         wrap.innerHTML = `<div class="notif-empty">✅ Sin notificaciones pendientes.</div>`;
       }
     }
