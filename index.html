@@ -1335,6 +1335,57 @@
       margin-top: 6px;
     }
 
+    .perfil-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 20px;
+      margin-top: 6px;
+    }
+    .perfil-badge.completo { background:#d1fae5; color:#065f46; }
+    .perfil-badge.parcial  { background:#fef3c7; color:#92400e; }
+    .perfil-badge.vacio    { background:#fee2e2; color:#991b1b; }
+    .notif-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .notif-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      font-size: 13px;
+      gap: 12px;
+    }
+    .notif-item span { flex: 1; }
+    .notif-ok {
+      background: var(--green);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      padding: 4px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .notif-ok:hover { opacity: 0.85; }
+    .notif-empty {
+      text-align: center;
+      padding: 16px;
+      color: var(--text-muted);
+      font-size: 13px;
+      background: #fff;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+    }
     .btn-perfil:hover {
       border-color: var(--orange);
       color: var(--orange);
@@ -2306,6 +2357,11 @@
         <div class="loading-state" style="grid-column:1/-1"><div class="spinner"></div></div>
       </div>
 
+      <div class="dash-section-title">🔔 Actividad pendiente de revisión</div>
+      <div id="notificaciones-wrap">
+        <div class="loading-state"><div class="spinner"></div></div>
+      </div>
+
       <div class="dash-section-title">📋 Reportes pendientes</div>
       <div id="reportes-pendientes-wrap">
         <div class="loading-state"><div class="spinner"></div></div>
@@ -2554,8 +2610,18 @@
         <button class="btn-delete" title="Eliminar alumno" onclick="confirmDelete(${alumno.id}, '${escJs(alumno.nombre)}')">✕</button>
       </div>` : '';
 
-      const perfilCompleto = !!(alumno.habilidades || alumno.horarios);
+      const tieneHab = !!(alumno.habilidades && alumno.habilidades.trim());
+      const tieneHor = !!(alumno.horarios && alumno.horarios.trim());
+      const perfilCompleto = tieneHab && tieneHor;
+      const perfilParcial = (tieneHab || tieneHor) && !perfilCompleto;
       const perfilBtnLabel = perfilCompleto ? '👤 Ver perfil' : '👤 Registrar perfil';
+      const perfilBadge = isAdmin
+        ? perfilCompleto
+          ? `<span class="perfil-badge completo">✅ Perfil completo</span>`
+          : perfilParcial
+            ? `<span class="perfil-badge parcial">🟡 Perfil parcial</span>`
+            : `<span class="perfil-badge vacio">🔴 Sin perfil</span>`
+        : '';
 
       const hoursButtonsHtml = isAdmin ? `
       <div class="btn-groups-wrap">
@@ -2580,6 +2646,7 @@
           <div class="student-name" title="${escHtml(alumno.nombre)}">${escHtml(alumno.nombre)}</div>
           ${codigoHtml}
           <div class="student-hours"><strong>${horas}</strong> / ${META} horas</div>
+          ${perfilBadge}
         </div>
         ${cardActionsHtml}
       </div>
@@ -2727,7 +2794,62 @@
         hubGrid.appendChild(card);
       });
 
+      renderNotificaciones();
       renderReportesPendientes();
+    }
+
+    function renderNotificaciones() {
+      const wrap = document.getElementById('notificaciones-wrap');
+      if (!wrap) return;
+
+      const vistas = JSON.parse(localStorage.getItem('hubs_notif_vistas') || '[]');
+
+      const notifs = [];
+      alumnos.forEach(a => {
+        const tieneHab = !!(a.habilidades && a.habilidades.trim());
+        const tieneHor = !!(a.horarios && a.horarios.trim());
+
+        // Notif: se registró (tiene password)
+        const keyReg = `reg_${a.id}`;
+        if (a.password && !vistas.includes(keyReg)) {
+          notifs.push({ key: keyReg, icon: '🆕', texto: `<strong>${escHtml(a.nombre)}</strong> (${escHtml(a.hub)}) completó su registro` });
+        }
+
+        // Notif: completó perfil (ambos campos)
+        const keyPerfil = `perfil_${a.id}`;
+        if (tieneHab && tieneHor && !vistas.includes(keyPerfil)) {
+          notifs.push({ key: keyPerfil, icon: '✅', texto: `<strong>${escHtml(a.nombre)}</strong> (${escHtml(a.hub)}) completó su perfil` });
+        }
+
+        // Notif: perfil parcial
+        const keyParcial = `parcial_${a.id}`;
+        if ((tieneHab || tieneHor) && !(tieneHab && tieneHor) && !vistas.includes(keyParcial)) {
+          notifs.push({ key: keyParcial, icon: '🟡', texto: `<strong>${escHtml(a.nombre)}</strong> (${escHtml(a.hub)}) registró parte de su perfil` });
+        }
+      });
+
+      if (notifs.length === 0) {
+        wrap.innerHTML = `<div class="notif-empty">✅ Sin notificaciones pendientes.</div>`;
+        return;
+      }
+
+      wrap.innerHTML = `<div class="notif-wrap">${notifs.map(n => `
+        <div class="notif-item" id="notif-${n.key}">
+          <span>${n.icon} ${n.texto}</span>
+          <button class="notif-ok" onclick="marcarNotifVista('${n.key}')">OK</button>
+        </div>`).join('')}</div>`;
+    }
+
+    function marcarNotifVista(key) {
+      const vistas = JSON.parse(localStorage.getItem('hubs_notif_vistas') || '[]');
+      if (!vistas.includes(key)) vistas.push(key);
+      localStorage.setItem('hubs_notif_vistas', JSON.stringify(vistas));
+      const el = document.getElementById(`notif-${key}`);
+      if (el) el.remove();
+      const wrap = document.getElementById('notificaciones-wrap');
+      if (wrap && wrap.querySelector('.notif-wrap') && wrap.querySelectorAll('.notif-item').length === 0) {
+        wrap.innerHTML = `<div class="notif-empty">✅ Sin notificaciones pendientes.</div>`;
+      }
     }
 
     /* ══════════════════════════════════════
